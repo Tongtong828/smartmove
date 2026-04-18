@@ -1,11 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-
-import '../model/route_point.dart';
-import '../model/sport_session.dart';
-import '../model/sport_type.dart';
-import '../widget/select_list.dart';
-import '../widget/stats_panel.dart';
-import 'summary.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geolocator_android/geolocator_android.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -15,116 +11,132 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  bool isTracking = false;
-  SportType? selectedType;
+  StreamSubscription<Position>? _subscription;
 
-  String durationText = '00:00:00';
-  String distanceText = '0.0 km';
-  String paceText = '--';
-  int comfortScore = 0;
+  String status = 'Idle';
+  String? errorText;
+  Position? currentPosition;
 
-  void _showSelectSheet() {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (_) {
-        return SelectListSheet(
-          onSelected: _startTracking,
-        );
-      },
-    );
+  @override
+  void initState() {
+    super.initState();
+    _startLocationTest();
   }
 
-  void _startTracking(SportType type) {
-    setState(() {
-      selectedType = type;
-      isTracking = true;
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
+  }
 
-      switch (type) {
-        case SportType.walking:
-          durationText = '00:28:16';
-          distanceText = '2.7 km';
-          paceText = '10\'28"/km';
-          comfortScore = 74;
-          break;
-        case SportType.running:
-          durationText = '00:24:32';
-          distanceText = '4.6 km';
-          paceText = '05\'20"/km';
-          comfortScore = 86;
-          break;
-        case SportType.cycling:
-          durationText = '00:36:48';
-          distanceText = '14.2 km';
-          paceText = '23.1 km/h';
-          comfortScore = 68;
-          break;
+  Future<void> _startLocationTest() async {
+    _subscription?.cancel();
+
+    setState(() {
+      status = 'Checking location service...';
+      errorText = null;
+      currentPosition = null;
+    });
+
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      setState(() {
+        status = 'Location service disabled';
+        errorText = 'Please turn on GPS / Location service.';
+      });
+      return;
+    }
+
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied) {
+      setState(() {
+        status = 'Permission denied';
+        errorText = 'Location permission was denied.';
+      });
+      return;
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      setState(() {
+        status = 'Permission denied forever';
+        errorText = 'Please enable location permission in app settings.';
+      });
+      return;
+    }
+
+    // 先尝试 last known
+    setState(() {
+      status = 'Getting last known position...';
+    });
+
+    try {
+      final lastKnown = await Geolocator.getLastKnownPosition();
+      if (lastKnown != null) {
+        setState(() {
+          currentPosition = lastKnown;
+          status = 'Last known position acquired';
+        });
       }
-    });
-  }
+    } catch (_) {}
 
-  Future<void> _finishTracking() async {
-    if (selectedType == null) return;
+    // Android  LocationManager
+    var androidSettings = AndroidSettings(
+  accuracy: LocationAccuracy.high,
+  distanceFilter: 3,
+  forceLocationManager: true,
+);
 
-    final now = DateTime.now();
-    final duration = _parseDuration(durationText);
-
-    final session = SportSession(
-      id: now.millisecondsSinceEpoch.toString(),
-      type: selectedType!,
-      startedAt: now.subtract(duration),
-      endedAt: now,
-      distanceKm: _parseDistance(distanceText),
-      averagePace: paceText,
-      comfortScore: comfortScore,
-      points: List.generate(
-        8,
-        (index) => RoutePoint(
-          latitude: 51.50 + index * 0.001,
-          longitude: -0.12 + index * 0.001,
-          timestamp: now.subtract(Duration(minutes: 24 - index * 3)),
-          comfortLevel: comfortScore / 100,
-        ),
-      ),
-    );
-
-    SessionStore.addSession(session);
-
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => SummaryPage(session: session),
-      ),
-    );
-
-    if (!mounted) return;
-
+  
     setState(() {
-      isTracking = false;
-      selectedType = null;
-      durationText = '00:00:00';
-      distanceText = '0.0 km';
-      paceText = '--';
-      comfortScore = 0;
+      status = 'Getting current position (LocationManager)...';
     });
-  }
 
-  double _parseDistance(String text) {
-    return double.tryParse(text.split(' ').first) ?? 0;
-  }
+    try {
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: androidSettings,
+      ).timeout(const Duration(seconds: 20));
 
-  Duration _parseDuration(String text) {
-    final parts = text.split(':');
-    if (parts.length != 3) return Duration.zero;
+      setState(() {
+        currentPosition = pos;
+        status = 'Current position acquired';
+      });
+    } on TimeoutException {
+      setState(() {
+        status = 'Timeout';
+        errorText =
+            'Still waiting for GPS fix. Try going outdoors, near a window, and keep precise location on.';
+      });
+    } catch (e) {
+      setState(() {
+        status = 'getCurrentPosition failed';
+        errorText = '$e';
+      });
+    }
 
-    final hours = int.tryParse(parts[0]) ?? 0;
-    final minutes = int.tryParse(parts[1]) ?? 0;
-    final seconds = int.tryParse(parts[2]) ?? 0;
+    // location updated
+    setState(() {
+      status = 'Listening to location updates...';
+    });
 
-    return Duration(
-      hours: hours,
-      minutes: minutes,
-      seconds: seconds,
+    _subscription = Geolocator.getPositionStream(
+      locationSettings: androidSettings,
+    ).listen(
+      (pos) {
+        setState(() {
+          currentPosition = pos;
+          status = 'Listening...';
+          errorText = null;
+        });
+      },
+      onError: (e) {
+        setState(() {
+          errorText = '$e';
+        });
+      },
     );
   }
 
@@ -132,204 +144,56 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('SmartMove'),
+        title: const Text('Location Test'),
         centerTitle: true,
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: Column(
-            children: [
-              Expanded(
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(24),
-                    color: const Color(0xFFF4F7FB),
-                  ),
-                  child: Stack(
-                    children: [
-                      CustomPaint(
-                        size: Size.infinite,
-                        painter: _HomeMapPainter(
-                          isTracking: isTracking,
-                          comfortScore: comfortScore,
-                        ),
-                        child: const SizedBox.expand(),
-                      ),
-                      Positioned(
-                        top: 16,
-                        left: 16,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.9),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            isTracking
-                                ? '${selectedType?.label ?? ''} in progress'
-                                : 'Live map will appear here',
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        bottom: 16,
-                        right: 16,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.9),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: const [
-                              Icon(Icons.circle, color: Colors.green, size: 12),
-                              SizedBox(width: 6),
-                              Text('Smooth'),
-                              SizedBox(width: 12),
-                              Icon(Icons.circle, color: Colors.red, size: 12),
-                              SizedBox(width: 6),
-                              Text('Rough'),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+      body: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Status: $status'),
+            const SizedBox(height: 16),
+            if (currentPosition != null) ...[
+              Text('Latitude: ${currentPosition!.latitude}'),
+              const SizedBox(height: 8),
+              Text('Longitude: ${currentPosition!.longitude}'),
+              const SizedBox(height: 8),
+              Text('Accuracy: ${currentPosition!.accuracy} m'),
+              const SizedBox(height: 8),
+              Text('Speed: ${currentPosition!.speed} m/s'),
+              const SizedBox(height: 8),
+              Text('Timestamp: ${currentPosition!.timestamp}'),
+            ] else
+              const Text('No location yet'),
+            const SizedBox(height: 24),
+            if (errorText != null)
+              Text(
+                errorText!,
+                style: const TextStyle(color: Colors.red),
               ),
-              const SizedBox(height: 16),
-              StatsPanel(
-                isTracking: isTracking,
-                sportType: selectedType,
-                durationText: durationText,
-                distanceText: distanceText,
-                paceText: paceText,
-                comfortScore: comfortScore,
-              ),
-              const SizedBox(height: 16),
-              if (!isTracking)
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: _showSelectSheet,
-                    icon: const Icon(Icons.add),
-                    label: const Text('Start Activity'),
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                    ),
-                  ),
-                )
-              else
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _showSelectSheet,
-                        icon: const Icon(Icons.swap_horiz),
-                        label: const Text('Change'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 18),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: _finishTracking,
-                        icon: const Icon(Icons.stop),
-                        label: const Text('Finish'),
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 18),
-                        ),
-                      ),
-                    ),
-                  ],
+            const Spacer(),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                OutlinedButton(
+                  onPressed: _startLocationTest,
+                  child: const Text('Retry'),
                 ),
-            ],
-          ),
+                OutlinedButton(
+                  onPressed: Geolocator.openLocationSettings,
+                  child: const Text('Open Location Settings'),
+                ),
+                OutlinedButton(
+                  onPressed: Geolocator.openAppSettings,
+                  child: const Text('Open App Settings'),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
-  }
-}
-
-class _HomeMapPainter extends CustomPainter {
-  final bool isTracking;
-  final int comfortScore;
-
-  const _HomeMapPainter({
-    required this.isTracking,
-    required this.comfortScore,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final gridPaint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 1;
-
-    for (double x = 0; x < size.width; x += 28) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
-    }
-    for (double y = 0; y < size.height; y += 28) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-    }
-
-    if (!isTracking) return;
-
-    final smoothPaint = Paint()
-      ..color = Colors.green
-      ..strokeWidth = 6
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final mediumPaint = Paint()
-      ..color = Colors.orange
-      ..strokeWidth = 6
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final roughPaint = Paint()
-      ..color = Colors.red
-      ..strokeWidth = 6
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final points = [
-      Offset(size.width * 0.18, size.height * 0.78),
-      Offset(size.width * 0.32, size.height * 0.62),
-      Offset(size.width * 0.46, size.height * 0.56),
-      Offset(size.width * 0.62, size.height * 0.40),
-      Offset(size.width * 0.78, size.height * 0.25),
-    ];
-
-    canvas.drawLine(points[0], points[1], smoothPaint);
-    canvas.drawLine(points[1], points[2], mediumPaint);
-    canvas.drawLine(points[2], points[3], roughPaint);
-    canvas.drawLine(points[3], points[4], smoothPaint);
-
-    final dotPaint = Paint()
-      ..color = comfortScore >= 80
-          ? Colors.green
-          : comfortScore >= 60
-              ? Colors.orange
-              : Colors.red;
-
-    canvas.drawCircle(points.last, 8, dotPaint);
-
-    final glowPaint = Paint()
-      ..color = dotPaint.color.withValues(alpha: 0.25);
-
-    canvas.drawCircle(points.last, 14, glowPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _HomeMapPainter oldDelegate) {
-    return oldDelegate.isTracking != isTracking ||
-        oldDelegate.comfortScore != comfortScore;
   }
 }
