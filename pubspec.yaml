@@ -38,7 +38,8 @@ dependencies:
   latlong2: ^0.9.1
   geolocator: ^14.0.2
   geolocator_android: ^5.0.2
-  amap_flutter: ^0.7.0
+  amap_map: ^1.0.15
+  x_amap_base: ^1.0.3
 
 dev_dependencies:
   flutter_test:

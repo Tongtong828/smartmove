@@ -1,20 +1,7 @@
-import 'package:amap_flutter/amap_flutter.dart';
 import 'package:flutter/material.dart';
-
 import 'page/nav.dart';
 
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  await AMapFlutter.init(
-    apiKey: ApiKey(
-      androidKey: '21c52760a4cb63f4b3682cf50e74e41d',
-      iosKey: '',
-      webKey: '',
-    ),
-    agreePrivacy: true,
-  );
-
+void main() {
   runApp(const SmartMoveApp());
 }
 
