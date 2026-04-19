@@ -55,7 +55,7 @@ class DetailPage extends StatelessWidget {
           Text(
             record.title,
             style: const TextStyle(
-              fontSize: 24,
+              fontSize: 26,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -101,36 +101,61 @@ class DetailPage extends StatelessWidget {
               );
             }).toList(),
           ),
-          const SizedBox(height: 20),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                record.note.isEmpty ? 'No note for this check-in.' : record.note,
-                style: const TextStyle(fontSize: 15, height: 1.5),
-              ),
+          const SizedBox(height: 18),
+          _sectionCard(
+            title: 'Detailed Address',
+            child: Text(
+              record.address.isEmpty ? 'No address' : record.address,
+              style: const TextStyle(fontSize: 15, height: 1.5),
             ),
           ),
-          const SizedBox(height: 16),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  _row(
-                    'Latitude',
-                    record.latitude.toStringAsFixed(6),
-                  ),
-                  const SizedBox(height: 12),
-                  _row(
-                    'Longitude',
-                    record.longitude.toStringAsFixed(6),
-                  ),
-                ],
-              ),
+          const SizedBox(height: 14),
+          _sectionCard(
+            title: 'Note',
+            child: Text(
+              record.note.isEmpty ? 'No note for this check-in.' : record.note,
+              style: const TextStyle(fontSize: 15, height: 1.5),
+            ),
+          ),
+          const SizedBox(height: 14),
+          _sectionCard(
+            title: 'Location Information',
+            child: Column(
+              children: [
+                _row('Location Source', record.locationSourceLabel),
+                const SizedBox(height: 12),
+                _row('Latitude', record.latitude.toStringAsFixed(6)),
+                const SizedBox(height: 12),
+                _row('Longitude', record.longitude.toStringAsFixed(6)),
+              ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _sectionCard({
+    required String title,
+    required Widget child,
+  }) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 12),
+            child,
+          ],
+        ),
       ),
     );
   }
@@ -143,7 +168,12 @@ class DetailPage extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
         const Spacer(),
-        Text(value),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+          ),
+        ),
       ],
     );
   }

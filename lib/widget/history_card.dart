@@ -58,7 +58,7 @@ class HistoryCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 16,
+                        fontSize: 18,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -72,11 +72,21 @@ class HistoryCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
+                      record.address.isEmpty ? 'No address' : record.address,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
                       record.note.isEmpty ? 'No note' : record.note,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: Colors.grey.shade800,
+                        color: Colors.grey.shade700,
                       ),
                     ),
                     const SizedBox(height: 10),

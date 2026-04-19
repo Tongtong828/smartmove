@@ -35,7 +35,8 @@ class _HistoryPageState extends State<HistoryPage> {
                   scrollDirection: Axis.horizontal,
                   children: [
                     Padding(
-                      padding: const EdgeInsets.only(right: 8, top: 12, bottom: 12),
+                      padding:
+                          const EdgeInsets.only(right: 8, top: 12, bottom: 12),
                       child: ChoiceChip(
                         selected: _selectedFilter == 'all',
                         label: const Text('All'),
