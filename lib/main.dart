@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
-import 'page/nav.dart';
 
-void main() {
+import 'page/nav.dart';
+import 'store/store.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await CheckInStore.instance.init();
+
   runApp(const SmartMoveApp());
 }
 
@@ -11,11 +16,20 @@ class SmartMoveApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'SmartMove',
+      title: 'City Check-in',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF4F46E5),
+        ),
+        scaffoldBackgroundColor: const Color(0xFFF7F8FC),
         useMaterial3: true,
+        cardTheme: CardThemeData(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+        ),
       ),
       home: const NavPage(),
     );

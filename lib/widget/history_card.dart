@@ -1,28 +1,26 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
-import '../model/sport_session.dart';
-import '../model/sport_type.dart';
+import '../model/record.dart';
+import '../model/tag.dart';
 
 class HistoryCard extends StatelessWidget {
-  final SportSession session;
+  final CheckInRecord record;
   final VoidCallback onTap;
 
   const HistoryCard({
     super.key,
-    required this.session,
+    required this.record,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final comfortColor = _comfortColor(session.comfortScore);
+    final previewTags = record.tags.take(3).toList();
 
     return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
+      margin: const EdgeInsets.only(bottom: 14),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
         onTap: onTap,
@@ -31,16 +29,24 @@ class HistoryCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 92,
-                height: 92,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  color: const Color(0xFFF5F7FB),
-                ),
-                child: CustomPaint(
-                  painter: _MiniRoutePainter(color: comfortColor),
-                ),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: record.imagePath != null
+                    ? Image.file(
+                        File(record.imagePath!),
+                        width: 112,
+                        height: 112,
+                        fit: BoxFit.cover,
+                      )
+                    : Container(
+                        width: 112,
+                        height: 112,
+                        color: const Color(0xFFEDEFF5),
+                        child: const Icon(
+                          Icons.photo_rounded,
+                          size: 36,
+                        ),
+                      ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -48,40 +54,58 @@ class HistoryCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      session.type.label,
+                      record.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      session.dateTimeLabel,
+                      record.dateTimeLabel,
                       style: TextStyle(
                         color: Colors.grey.shade700,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '${session.distanceKm.toStringAsFixed(1)} km • ${session.durationLabel}',
-                      style: TextStyle(
-                        color: Colors.grey.shade700,
+                        fontSize: 13,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: comfortColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(999),
+                    Text(
+                      record.note.isEmpty ? 'No note' : record.note,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.grey.shade800,
                       ),
-                      child: Text(
-                        'Comfort ${session.comfortScore}',
-                        style: TextStyle(
-                          color: comfortColor,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: previewTags.map((key) {
+                        final tag = findTagByKey(key);
+                        if (tag == null) return const SizedBox.shrink();
+
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: tag.color.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            tag.label,
+                            style: TextStyle(
+                              color: tag.color,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                          ),
+                        );
+                      }).toList(),
                     ),
                   ],
                 ),
@@ -92,69 +116,4 @@ class HistoryCard extends StatelessWidget {
       ),
     );
   }
-
-  Color _comfortColor(int score) {
-    if (score >= 80) return Colors.green;
-    if (score >= 60) return Colors.orange;
-    return Colors.red;
-  }
-}
-
-class _MiniRoutePainter extends CustomPainter {
-  final Color color;
-
-  const _MiniRoutePainter({
-    required this.color,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final gridPaint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 1;
-
-    for (double x = 12; x < size.width; x += 18) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
-    }
-    for (double y = 12; y < size.height; y += 18) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-    }
-
-    final pathPaint = Paint()
-      ..color = color
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final path = Path()
-      ..moveTo(size.width * 0.15, size.height * 0.75)
-      ..cubicTo(
-        size.width * 0.25,
-        size.height * 0.58,
-        size.width * 0.35,
-        size.height * 0.62,
-        size.width * 0.45,
-        size.height * 0.45,
-      )
-      ..cubicTo(
-        size.width * 0.55,
-        size.height * 0.28,
-        size.width * 0.67,
-        size.height * 0.35,
-        size.width * 0.82,
-        size.height * 0.18,
-      );
-
-    canvas.drawPath(path, pathPaint);
-
-    final dotPaint = Paint()..color = color;
-    canvas.drawCircle(
-      Offset(size.width * 0.82, size.height * 0.18),
-      4,
-      dotPaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

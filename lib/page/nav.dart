@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'home.dart';
+
 import 'history.dart';
+import 'home.dart';
 import 'profile.dart';
 
 class NavPage extends StatefulWidget {
@@ -11,9 +12,9 @@ class NavPage extends StatefulWidget {
 }
 
 class _NavPageState extends State<NavPage> {
-  int currentIndex = 0;
+  int _currentIndex = 0;
 
-  final List<Widget> pages = const [
+  final _pages = const [
     HomePage(),
     HistoryPage(),
     ProfilePage(),
@@ -22,31 +23,25 @@ class _NavPageState extends State<NavPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: currentIndex,
-        children: pages,
-      ),
+      body: _pages[_currentIndex],
       bottomNavigationBar: NavigationBar(
-        selectedIndex: currentIndex,
+        selectedIndex: _currentIndex,
         onDestinationSelected: (index) {
           setState(() {
-            currentIndex = index;
+            _currentIndex = index;
           });
         },
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
+            icon: Icon(Icons.map_rounded),
+            label: 'Map',
           ),
           NavigationDestination(
-            icon: Icon(Icons.history),
-            selectedIcon: Icon(Icons.history_toggle_off),
+            icon: Icon(Icons.history_rounded),
             label: 'History',
           ),
           NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
+            icon: Icon(Icons.person_rounded),
             label: 'Profile',
           ),
         ],

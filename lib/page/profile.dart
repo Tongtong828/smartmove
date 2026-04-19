@@ -1,170 +1,127 @@
 import 'package:flutter/material.dart';
 
-import '../model/sport_session.dart';
-import '../model/sport_type.dart';
+import '../model/tag.dart';
+import '../store/store.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
 
-  double _sumDistance(
-    List<SportSession> sessions,
-    DateTime from,
-    SportType type,
-  ) {
-    return sessions
-        .where((session) => session.type == type && session.startedAt.isAfter(from))
-        .fold(0.0, (sum, session) => sum + session.distanceKm);
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile'),
-        centerTitle: true,
-      ),
-      body: SafeArea(
-        child: ValueListenableBuilder<List<SportSession>>(
-          valueListenable: SessionStore.sessions,
-          builder: (context, sessions, child) {
-            final now = DateTime.now();
-            final weekStart = now.subtract(Duration(days: now.weekday - 1));
-            final monthStart = DateTime(now.year, now.month, 1);
-            final yearStart = DateTime(now.year, 1, 1);
+    return AnimatedBuilder(
+      animation: CheckInStore.instance,
+      builder: (context, _) {
+        final records = CheckInStore.instance.records;
+        final latest = records.isEmpty ? null : records.first;
 
-            return ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    side: BorderSide(color: Colors.grey.shade200),
-                  ),
-                  child: const Padding(
-                    padding: EdgeInsets.all(20),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 28,
-                          child: Icon(Icons.person),
+        final usedTags = <String>{};
+        for (final record in records) {
+          usedTags.addAll(record.tags);
+        }
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Profile'),
+          ),
+          body: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      CircleAvatar(
+                        radius: 34,
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        child: const Icon(
+                          Icons.person_rounded,
+                          color: Colors.white,
+                          size: 34,
                         ),
-                        SizedBox(width: 14),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Tong',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text('SmartMove User'),
-                          ],
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'City Explorer',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
                         ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Collect places, moments and memories.',
+                        style: TextStyle(color: Colors.grey.shade700),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 16),
-                _RangeCard(
-                  title: 'This Week',
-                  walkingKm: _sumDistance(sessions, weekStart, SportType.walking),
-                  runningKm: _sumDistance(sessions, weekStart, SportType.running),
-                  cyclingKm: _sumDistance(sessions, weekStart, SportType.cycling),
-                ),
-                const SizedBox(height: 12),
-                _RangeCard(
-                  title: 'This Month',
-                  walkingKm: _sumDistance(sessions, monthStart, SportType.walking),
-                  runningKm: _sumDistance(sessions, monthStart, SportType.running),
-                  cyclingKm: _sumDistance(sessions, monthStart, SportType.cycling),
-                ),
-                const SizedBox(height: 12),
-                _RangeCard(
-                  title: 'This Year',
-                  walkingKm: _sumDistance(sessions, yearStart, SportType.walking),
-                  runningKm: _sumDistance(sessions, yearStart, SportType.running),
-                  cyclingKm: _sumDistance(sessions, yearStart, SportType.cycling),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-class _RangeCard extends StatelessWidget {
-  final String title;
-  final double walkingKm;
-  final double runningKm;
-  final double cyclingKm;
-
-  const _RangeCard({
-    required this.title,
-    required this.walkingKm,
-    required this.runningKm,
-    required this.cyclingKm,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final total = walkingKm + runningKm + cyclingKm;
-
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '$title • ${total.toStringAsFixed(1)} km',
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
               ),
-            ),
-            const SizedBox(height: 14),
-            _DistanceRow(label: 'Walking', value: walkingKm),
-            const SizedBox(height: 10),
-            _DistanceRow(label: 'Running', value: runningKm),
-            const SizedBox(height: 10),
-            _DistanceRow(label: 'Cycling', value: cyclingKm),
-          ],
-        ),
-      ),
+              const SizedBox(height: 14),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    children: [
+                      _row('Total check-ins', records.length.toString()),
+                      const SizedBox(height: 12),
+                      _row('Used tags', usedTags.length.toString()),
+                      const SizedBox(height: 12),
+                      _row(
+                        'Latest check-in',
+                        latest == null ? '--' : latest.title,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: availableTags.map((tag) {
+                      final count = CheckInStore.instance.countByTag(tag.key);
+
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: tag.color.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          '${tag.label} · $count',
+                          style: TextStyle(
+                            color: tag.color,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
-}
 
-class _DistanceRow extends StatelessWidget {
-  final String label;
-  final double value;
-
-  const _DistanceRow({
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _row(String title, String value) {
     return Row(
       children: [
-        Text(label),
-        const Spacer(),
         Text(
-          '${value.toStringAsFixed(1)} km',
+          title,
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
+        const Spacer(),
+        Text(value),
       ],
     );
   }

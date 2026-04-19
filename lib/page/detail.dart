@@ -1,154 +1,150 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
-import '../model/route_point.dart';
-import '../model/sport_session.dart';
-import '../model/sport_type.dart';
+import '../model/record.dart';
+import '../model/tag.dart';
+import '../store/store.dart';
 
 class DetailPage extends StatelessWidget {
-  final SportSession session;
+  final CheckInRecord record;
 
   const DetailPage({
     super.key,
-    required this.session,
+    required this.record,
   });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Session Detail'),
+        title: const Text('Check-in Detail'),
+        actions: [
+          IconButton(
+            onPressed: () async {
+              await CheckInStore.instance.deleteRecord(record.id);
+              if (context.mounted) {
+                Navigator.pop(context);
+              }
+            },
+            icon: const Icon(Icons.delete_outline_rounded),
+          ),
+        ],
       ),
-      body: Padding(
+      body: ListView(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Container(
-              height: 260,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade200,
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: CustomPaint(
-                painter: _SessionRoutePainter(points: session.points),
-                child: const Center(
-                  child: Text(
-                    'Route Preview',
-                    style: TextStyle(fontSize: 18),
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: record.imagePath != null
+                ? Image.file(
+                    File(record.imagePath!),
+                    height: 260,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  )
+                : Container(
+                    height: 220,
+                    color: const Color(0xFFEDEFF5),
+                    child: const Center(
+                      child: Icon(Icons.photo_rounded, size: 48),
+                    ),
                   ),
-                ),
-              ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            record.title,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
             ),
-            const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
+          ),
+          const SizedBox(height: 10),
+          Text(
+            record.dateTimeLabel,
+            style: TextStyle(
+              color: Colors.grey.shade700,
+              fontSize: 15,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: record.tags.map((key) {
+              final tag = findTagByKey(key);
+              if (tag == null) return const SizedBox.shrink();
+
+              return Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: tag.color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    _item('Sport', session.type.label),
-                    _item('Date', session.dateTimeLabel),
-                    _item('Distance', '${session.distanceKm.toStringAsFixed(2)} km'),
-                    _item('Duration', session.durationLabel),
-                    _item('Pace / Speed', session.averagePace),
-                    _item('Comfort Score', session.comfortScore.toString()),
+                    Icon(tag.icon, size: 16, color: tag.color),
+                    const SizedBox(width: 6),
+                    Text(
+                      tag.label,
+                      style: TextStyle(
+                        color: tag.color,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ],
                 ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 20),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                record.note.isEmpty ? 'No note for this check-in.' : record.note,
+                style: const TextStyle(fontSize: 15, height: 1.5),
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _item(String title, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Text(title),
-          const Spacer(),
-          Text(
-            value,
-            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  _row(
+                    'Latitude',
+                    record.latitude.toStringAsFixed(6),
+                  ),
+                  const SizedBox(height: 12),
+                  _row(
+                    'Longitude',
+                    record.longitude.toStringAsFixed(6),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
     );
   }
-}
 
-class _SessionRoutePainter extends CustomPainter {
-  final List<RoutePoint> points;
-
-  const _SessionRoutePainter({
-    required this.points,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (points.length < 2) return;
-
-    final gridPaint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 1;
-
-    for (double x = 0; x < size.width; x += 28) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
-    }
-    for (double y = 0; y < size.height; y += 28) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-    }
-
-    final minLat = points.map((p) => p.latitude).reduce((a, b) => a < b ? a : b);
-    final maxLat = points.map((p) => p.latitude).reduce((a, b) => a > b ? a : b);
-    final minLng = points.map((p) => p.longitude).reduce((a, b) => a < b ? a : b);
-    final maxLng = points.map((p) => p.longitude).reduce((a, b) => a > b ? a : b);
-
-    double toX(double lng) {
-      if (maxLng == minLng) return size.width * 0.5;
-      return 24 + ((lng - minLng) / (maxLng - minLng)) * (size.width - 48);
-    }
-
-    double toY(double lat) {
-      if (maxLat == minLat) return size.height * 0.5;
-      return size.height - 24 - ((lat - minLat) / (maxLat - minLat)) * (size.height - 48);
-    }
-
-    for (int i = 0; i < points.length - 1; i++) {
-      final current = points[i];
-      final next = points[i + 1];
-
-      final segmentPaint = Paint()
-        ..color = _colorForComfort(current.comfortLevel)
-        ..strokeWidth = 6
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round;
-
-      canvas.drawLine(
-        Offset(toX(current.longitude), toY(current.latitude)),
-        Offset(toX(next.longitude), toY(next.latitude)),
-        segmentPaint,
-      );
-    }
-
-    final endPoint = points.last;
-    final endPaint = Paint()..color = _colorForComfort(endPoint.comfortLevel);
-    canvas.drawCircle(
-      Offset(toX(endPoint.longitude), toY(endPoint.latitude)),
-      7,
-      endPaint,
+  Widget _row(String title, String value) {
+    return Row(
+      children: [
+        Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        const Spacer(),
+        Text(value),
+      ],
     );
-  }
-
-  Color _colorForComfort(double comfort) {
-    if (comfort >= 0.8) return Colors.green;
-    if (comfort >= 0.6) return Colors.orange;
-    return Colors.red;
-  }
-
-  @override
-  bool shouldRepaint(covariant _SessionRoutePainter oldDelegate) {
-    return oldDelegate.points != points;
   }
 }

@@ -1,52 +1,103 @@
 import 'package:flutter/material.dart';
 
-import '../model/sport_session.dart';
+import '../model/tag.dart';
+import '../store/store.dart';
 import '../widget/history_card.dart';
 import 'detail.dart';
 
-class HistoryPage extends StatelessWidget {
+class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
 
   @override
+  State<HistoryPage> createState() => _HistoryPageState();
+}
+
+class _HistoryPageState extends State<HistoryPage> {
+  String _selectedFilter = 'all';
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('History'),
-        centerTitle: true,
-      ),
-      body: SafeArea(
-        child: ValueListenableBuilder<List<SportSession>>(
-          valueListenable: SessionStore.sessions,
-          builder: (context, sessions, _) {
-            if (sessions.isEmpty) {
-              return const Center(
-                child: Text('No activity history yet.'),
-              );
-            }
+    return AnimatedBuilder(
+      animation: CheckInStore.instance,
+      builder: (context, _) {
+        final records = CheckInStore.instance.filteredByTag(_selectedFilter);
 
-            return ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: sessions.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final session = sessions[index];
-
-                return HistoryCard(
-                  session: session,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => DetailPage(session: session),
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('History'),
+          ),
+          body: Column(
+            children: [
+              SizedBox(
+                height: 62,
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8, top: 12, bottom: 12),
+                      child: ChoiceChip(
+                        selected: _selectedFilter == 'all',
+                        label: const Text('All'),
+                        onSelected: (_) {
+                          setState(() {
+                            _selectedFilter = 'all';
+                          });
+                        },
                       ),
-                    );
-                  },
-                );
-              },
-            );
-          },
-        ),
-      ),
+                    ),
+                    ...availableTags.map((tag) {
+                      return Padding(
+                        padding: const EdgeInsets.only(
+                          right: 8,
+                          top: 12,
+                          bottom: 12,
+                        ),
+                        child: ChoiceChip(
+                          selected: _selectedFilter == tag.key,
+                          label: Text(tag.label),
+                          onSelected: (_) {
+                            setState(() {
+                              _selectedFilter = tag.key;
+                            });
+                          },
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: records.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'No check-ins yet.\nAdd your first city memory.',
+                          textAlign: TextAlign.center,
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: records.length,
+                        itemBuilder: (context, index) {
+                          final record = records[index];
+                          return HistoryCard(
+                            record: record,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => DetailPage(record: record),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
