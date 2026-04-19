@@ -24,7 +24,7 @@ class _HistoryPageState extends State<HistoryPage> {
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text('History'),
+            title: const Text('Saved Places'),
           ),
           body: Column(
             children: [
@@ -35,8 +35,11 @@ class _HistoryPageState extends State<HistoryPage> {
                   scrollDirection: Axis.horizontal,
                   children: [
                     Padding(
-                      padding:
-                          const EdgeInsets.only(right: 8, top: 12, bottom: 12),
+                      padding: const EdgeInsets.only(
+                        right: 8,
+                        top: 12,
+                        bottom: 12,
+                      ),
                       child: ChoiceChip(
                         selected: _selectedFilter == 'all',
                         label: const Text('All'),
@@ -72,7 +75,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 child: records.isEmpty
                     ? const Center(
                         child: Text(
-                          'No check-ins yet.\nAdd your first city memory.',
+                          'No places saved yet.\nStart by adding your first memory.',
                           textAlign: TextAlign.center,
                         ),
                       )

@@ -76,7 +76,7 @@ class _AddPointPageState extends State<AddPointPage> {
 
   Future<void> _useInitialCurrentLocation() async {
     if (widget.initialLatitude == null || widget.initialLongitude == null) {
-      _showMessage('Current location is not ready yet.');
+      _showMessage('Current location is not available yet.');
       return;
     }
 
@@ -90,10 +90,10 @@ class _AddPointPageState extends State<AddPointPage> {
         widget.initialAddress!.trim().isNotEmpty) {
       _addressController.text = widget.initialAddress!;
     } else {
-      _addressController.text = 'Please edit the detailed address';
+      _addressController.text = 'Please enter the address for this place.';
     }
 
-    _showMessage('Using current location.');
+    _showMessage('Current location selected.');
   }
 
   Future<void> _resolvePickedLocationAddress({
@@ -102,7 +102,7 @@ class _AddPointPageState extends State<AddPointPage> {
   }) async {
     setState(() {
       _isResolvingAddress = true;
-      _addressController.text = 'Finding address...';
+      _addressController.text = 'Loading address...';
     });
 
     try {
@@ -116,11 +116,13 @@ class _AddPointPageState extends State<AddPointPage> {
       if (address != null && address.trim().isNotEmpty) {
         _addressController.text = address;
       } else {
-        _addressController.text = 'The address could not be obtained automatically. Please fill it in manually';
+        _addressController.text =
+            'Address could not be loaded automatically. Please enter it manually.';
       }
     } catch (_) {
       if (!mounted) return;
-      _addressController.text = 'Address resolution failed. Please fill it in manually';
+      _addressController.text =
+          'Address loading failed. Please enter it manually.';
     } finally {
       if (mounted) {
         setState(() {
@@ -130,7 +132,7 @@ class _AddPointPageState extends State<AddPointPage> {
     }
   }
 
-  Future<void> _pickOnMap() async {
+  Future<void> _chooseOnMap() async {
     final result = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
@@ -158,7 +160,7 @@ class _AddPointPageState extends State<AddPointPage> {
       longitude: longitude,
     );
 
-    _showMessage('Map location selected.');
+    _showMessage('Location chosen on map.');
   }
 
   Future<String> _persistImage(XFile file) async {
@@ -215,22 +217,22 @@ class _AddPointPageState extends State<AddPointPage> {
     final address = _addressController.text.trim();
 
     if (title.isEmpty) {
-      _showMessage('Please enter a title.');
+      _showMessage('Please enter a place title.');
       return;
     }
 
     if (_latitude == null || _longitude == null || _locationSource == null) {
-      _showMessage('Please choose a location first.');
+      _showMessage('Please select a location first.');
       return;
     }
 
     if (_selectedTags.isEmpty) {
-      _showMessage('Please select at least one tag.');
+      _showMessage('Please choose at least one tag.');
       return;
     }
 
-    if (address.isEmpty || address == 'Loading...') {
-      _showMessage('Please wait for the address or enter it manually.');
+    if (address.isEmpty || address == 'Loading address...') {
+      _showMessage('Please wait for the address to load, or enter it manually.');
       return;
     }
 
@@ -266,23 +268,21 @@ class _AddPointPageState extends State<AddPointPage> {
 
   String _locationStatusText() {
     if (_locationSource == null) {
-      return 'No location selected';
+      return 'No location selected yet';
     }
     if (_locationSource == 'manual') {
-      return 'Picked on map';
+      return 'Location chosen on map';
     }
-    return 'Using current location';
+    return 'Current location selected';
   }
 
   @override
   Widget build(BuildContext context) {
     final hasLocation = _latitude != null && _longitude != null;
-    final latText = _latitude == null ? '--' : _latitude!.toStringAsFixed(6);
-    final lngText = _longitude == null ? '--' : _longitude!.toStringAsFixed(6);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add Check-in'),
+        title: const Text('Add a Place'),
       ),
       body: SafeArea(
         child: Column(
@@ -292,8 +292,11 @@ class _AddPointPageState extends State<AddPointPage> {
                 padding: const EdgeInsets.all(16),
                 children: [
                   Card(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(22),
+                    ),
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(18),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -306,38 +309,75 @@ class _AddPointPageState extends State<AddPointPage> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Default: current location. Pick on Map is optional if you want to correct or add a missed check-in.',
+                            'Your current location is used by default. You can also choose a place on the map if needed.',
                             style: TextStyle(
-                              color: Colors.grey,
+                              color: Colors.grey.shade700,
+                              height: 1.4,
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 16),
+
+                          // Two balanced rounded action buttons
                           Row(
                             children: [
                               Expanded(
-                                child: FilledButton.icon(
-                                  onPressed: _useInitialCurrentLocation,
-                                  icon: const Icon(Icons.my_location_rounded),
-                                  label: const Text('Use Current Location'),
+                                child: SizedBox(
+                                  height: 58,
+                                  child: FilledButton.icon(
+                                    onPressed: _useInitialCurrentLocation,
+                                    icon: const Icon(Icons.my_location_rounded),
+                                    label: const Text(
+                                      'Use Current\nLocation',
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    style: FilledButton.styleFrom(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(18),
+                                      ),
+                                      textStyle: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
-                              const SizedBox(width: 12),
+                              const SizedBox(width: 14),
                               Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: _pickOnMap,
-                                  icon: const Icon(Icons.place_rounded),
-                                  label: const Text('Pick on Map'),
+                                child: SizedBox(
+                                  height: 58,
+                                  child: OutlinedButton.icon(
+                                    onPressed: _chooseOnMap,
+                                    icon: const Icon(Icons.place_rounded),
+                                    label: const Text(
+                                      'Choose on\nMap',
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    style: OutlinedButton.styleFrom(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(18),
+                                      ),
+                                      side: BorderSide(
+                                        color: Colors.grey.shade400,
+                                      ),
+                                      textStyle: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 14),
+
+                          const SizedBox(height: 16),
                           Container(
                             width: double.infinity,
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
                               color: const Color(0xFFF5F7FB),
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(18),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -351,31 +391,24 @@ class _AddPointPageState extends State<AddPointPage> {
                                 const SizedBox(height: 8),
                                 Text(
                                   hasLocation
-                                      ? 'Location selected successfully.'
-                                      : 'Current location is not ready yet.',
+                                      ? 'Location ready'
+                                      : 'Location is not available yet.',
                                   style: TextStyle(
                                     color: Colors.grey.shade700,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Lat: $latText\nLng: $lngText',
-                                  style: TextStyle(
-                                    color: Colors.grey.shade700,
-                                    fontSize: 13,
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          const SizedBox(height: 14),
+
+                          const SizedBox(height: 16),
                           TextField(
                             controller: _addressController,
                             maxLines: 3,
                             decoration: InputDecoration(
-                              labelText: 'Detailed Address',
+                              labelText: 'Place / Address',
                               hintText:
-                                  'Address will auto-fill. You can still edit it.',
+                                  'The address will be filled automatically. You can edit it if needed.',
                               suffixIcon: _isResolvingAddress
                                   ? const Padding(
                                       padding: EdgeInsets.all(12),
@@ -389,7 +422,7 @@ class _AddPointPageState extends State<AddPointPage> {
                                     )
                                   : null,
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(18),
                               ),
                             ),
                           ),
@@ -399,17 +432,20 @@ class _AddPointPageState extends State<AddPointPage> {
                   ),
                   const SizedBox(height: 14),
                   Card(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(22),
+                    ),
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(18),
                       child: Column(
                         children: [
                           TextField(
                             controller: _titleController,
                             decoration: InputDecoration(
-                              labelText: 'Title',
+                              labelText: 'Place Title',
                               hintText: 'e.g. British Museum',
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(18),
                               ),
                             ),
                           ),
@@ -418,10 +454,10 @@ class _AddPointPageState extends State<AddPointPage> {
                             controller: _noteController,
                             maxLines: 4,
                             decoration: InputDecoration(
-                              labelText: 'Note',
-                              hintText: 'Write something about this place...',
+                              labelText: 'Notes',
+                              hintText: 'Write a short note about this place...',
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(18),
                               ),
                             ),
                           ),
@@ -431,8 +467,11 @@ class _AddPointPageState extends State<AddPointPage> {
                   ),
                   const SizedBox(height: 14),
                   Card(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(22),
+                    ),
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(18),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -445,7 +484,7 @@ class _AddPointPageState extends State<AddPointPage> {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            'Select at least one tag.',
+                            'Choose at least one tag.',
                             style: TextStyle(color: Colors.grey.shade700),
                           ),
                           const SizedBox(height: 12),
@@ -483,8 +522,11 @@ class _AddPointPageState extends State<AddPointPage> {
                   ),
                   const SizedBox(height: 14),
                   Card(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(22),
+                    ),
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(18),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -498,7 +540,7 @@ class _AddPointPageState extends State<AddPointPage> {
                           const SizedBox(height: 12),
                           if (_imagePath != null)
                             ClipRRect(
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(18),
                               child: Image.file(
                                 File(_imagePath!),
                                 height: 220,
@@ -512,7 +554,7 @@ class _AddPointPageState extends State<AddPointPage> {
                               width: double.infinity,
                               decoration: BoxDecoration(
                                 color: const Color(0xFFF2F4F8),
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(18),
                               ),
                               child: const Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -522,7 +564,7 @@ class _AddPointPageState extends State<AddPointPage> {
                                     size: 44,
                                   ),
                                   SizedBox(height: 8),
-                                  Text('No photo selected'),
+                                  Text('No photo added yet'),
                                 ],
                               ),
                             ),
@@ -535,6 +577,11 @@ class _AddPointPageState extends State<AddPointPage> {
                                       _pickImage(ImageSource.camera),
                                   icon: const Icon(Icons.photo_camera_rounded),
                                   label: const Text('Camera'),
+                                  style: OutlinedButton.styleFrom(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -544,6 +591,11 @@ class _AddPointPageState extends State<AddPointPage> {
                                       _pickImage(ImageSource.gallery),
                                   icon: const Icon(Icons.photo_library_rounded),
                                   label: const Text('Gallery'),
+                                  style: OutlinedButton.styleFrom(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ],
@@ -562,9 +614,12 @@ class _AddPointPageState extends State<AddPointPage> {
                 child: FilledButton.icon(
                   onPressed: _isSaving ? null : _save,
                   icon: const Icon(Icons.bookmark_add_rounded),
-                  label: Text(_isSaving ? 'Saving...' : 'Save Check-in'),
+                  label: Text(_isSaving ? 'Saving...' : 'Save Place'),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
                   ),
                 ),
               ),

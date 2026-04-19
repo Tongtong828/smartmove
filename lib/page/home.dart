@@ -24,12 +24,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   StreamSubscription<AMapLocationData>? _locationSub;
 
   AMapLocationData? _currentLocation;
-  String _statusText = 'Initializing...';
   String? _errorText;
 
   bool _amapInited = false;
   bool _locationStarted = false;
   bool _hasMovedCamera = false;
+  bool _isLocating = false;
 
   @override
   void initState() {
@@ -62,7 +62,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _refreshCurrentLocation();
+      _tryRefreshCurrentLocation();
     }
   }
 
@@ -92,7 +92,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _locationStarted = true;
 
     setState(() {
-      _statusText = 'Starting location...';
       _errorText = null;
     });
 
@@ -103,67 +102,51 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (first != null) {
       setState(() {
         _currentLocation = first;
-        _statusText = 'Current location acquired';
-        _errorText = null;
       });
 
-      await _moveCameraToCurrent();
+      await _moveCameraToCurrent(forceZoom: true);
       _hasMovedCamera = true;
     } else {
       setState(() {
-        _statusText = 'Failed to get current location';
-        _errorText = 'Location returned no valid result.';
+        _errorText = 'Location is currently unavailable.';
       });
     }
 
     await _locationSub?.cancel();
-    _locationSub = _locationService?.stream.listen((loc) {
-      if (!mounted) return;
+    _locationSub = _locationService?.stream.listen(
+      (loc) {
+        if (!mounted) return;
 
-      setState(() {
-        _currentLocation = loc;
-        _statusText = 'Location updated';
-        _errorText = null;
-      });
-
-      if (!_hasMovedCamera) {
-        _moveCameraToCurrent();
-        _hasMovedCamera = true;
-      }
-    });
+        setState(() {
+          _currentLocation = loc;
+          _errorText = null;
+        });
+      },
+      onError: (_) {
+        if (!mounted) return;
+        setState(() {
+          _errorText = 'Live location updates failed.';
+        });
+      },
+    );
 
     await _locationService?.startContinuousLocation();
   }
 
-  Future<void> _refreshCurrentLocation() async {
-    setState(() {
-      _statusText = 'Refreshing current location...';
-      _errorText = null;
-    });
-
+  Future<void> _tryRefreshCurrentLocation() async {
     final loc = await _locationService?.getCurrentLocation();
 
     if (!mounted) return;
 
-    if (loc == null) {
+    if (loc != null) {
       setState(() {
-        _statusText = 'Refresh failed';
-        _errorText = 'Location refresh failed.';
+        _currentLocation = loc;
+        _errorText = null;
       });
-      return;
     }
-
-    setState(() {
-      _currentLocation = loc;
-      _statusText = 'Current location refreshed';
-      _errorText = null;
-    });
-
-    await _moveCameraToCurrent();
-    _hasMovedCamera = true;
   }
 
-  Future<void> _moveCameraToCurrent() async {
+  Future<void> _moveCameraToCurrent({bool forceZoom = false}) async {
     if (_mapController == null || _currentLocation == null) return;
 
     await _mapController!.moveCamera(
@@ -173,8 +156,66 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             _currentLocation!.latitude,
             _currentLocation!.longitude,
           ),
-          zoom: 16,
+          zoom: forceZoom ? 15.5 : 14.5,
         ),
+      ),
+    );
+  }
+
+  Future<void> _goToMyLocation() async {
+    if (_isLocating) return;
+
+    // If live location already exists, just move the camera immediately.
+    if (_currentLocation != null) {
+      await _moveCameraToCurrent(forceZoom: true);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Moved to current location.'),
+        ),
+      );
+      return;
+    }
+
+    // Fallback: try to get location once only when no cached location exists.
+    setState(() {
+      _isLocating = true;
+      _errorText = null;
+    });
+
+    final loc = await _locationService?.getCurrentLocation();
+
+    if (!mounted) return;
+
+    setState(() {
+      _isLocating = false;
+    });
+
+    if (loc == null) {
+      setState(() {
+        _errorText = 'Unable to get the current location.';
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to get the current location.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _currentLocation = loc;
+      _errorText = null;
+    });
+
+    await _moveCameraToCurrent(forceZoom: true);
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Moved to current location.'),
       ),
     );
   }
@@ -238,7 +279,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       builder: (context, _) {
         return Scaffold(
           appBar: AppBar(
-            title: const Text('City Check-in Map'),
+            title: const Text('City Memory Map'),
             centerTitle: true,
           ),
           body: SafeArea(
@@ -278,20 +319,38 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Text(
-                              '${CheckInStore.instance.records.length} saved check-ins',
+                              '${CheckInStore.instance.records.length} saved places',
                               style: const TextStyle(
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
                           ),
                         ),
+
+                        // Recenter button: move back to the latest known location.
                         Positioned(
                           right: 16,
                           bottom: 16,
-                          child: FloatingActionButton.small(
-                            heroTag: 'recenter_btn',
-                            onPressed: _refreshCurrentLocation,
-                            child: const Icon(Icons.my_location_rounded),
+                          child: Material(
+                            color: Colors.white.withValues(alpha: 0.96),
+                            borderRadius: BorderRadius.circular(18),
+                            elevation: 3,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(18),
+                              onTap: _goToMyLocation,
+                              child: SizedBox(
+                                width: 54,
+                                height: 54,
+                                child: _isLocating
+                                    ? const Padding(
+                                        padding: EdgeInsets.all(14),
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.4,
+                                        ),
+                                      )
+                                    : const Icon(Icons.my_location_rounded),
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -312,7 +371,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     child: FilledButton.icon(
                       onPressed: _goToAddPoint,
                       icon: const Icon(Icons.add_location_alt_rounded),
-                      label: const Text('Add Check-in'),
+                      label: const Text('Add Place'),
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 18),
                         shape: RoundedRectangleBorder(

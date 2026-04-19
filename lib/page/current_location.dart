@@ -10,36 +10,17 @@ class AMapLocationData {
   final double latitude;
   final double longitude;
   final String address;
-  final String province;
-  final String city;
-  final String district;
-  final String street;
-  final String adCode;
   final double accuracy;
 
   const AMapLocationData({
     required this.latitude,
     required this.longitude,
     required this.address,
-    required this.province,
-    required this.city,
-    required this.district,
-    required this.street,
-    required this.adCode,
     required this.accuracy,
   });
 
   String get displayAddress {
     if (address.trim().isNotEmpty) return address;
-
-    final parts = [street, district, city, province]
-        .where((e) => e.trim().isNotEmpty)
-        .toList();
-
-    if (parts.isNotEmpty) {
-      return parts.join(', ');
-    }
-
     return 'Address unavailable';
   }
 }
@@ -61,8 +42,8 @@ class AMapLocationService {
   final String _iosKey;
 
   late final AMapFlutterLocation _plugin;
-  StreamSubscription<Map<String, Object>>? _sub;
 
+  StreamSubscription<Map<String, Object>>? _nativeLocationSub;
   final StreamController<AMapLocationData> _controller =
       StreamController<AMapLocationData>.broadcast();
 
@@ -94,6 +75,7 @@ class AMapLocationService {
     option.onceLocation = true;
     option.needAddress = true;
 
+    // Use English reverse-geocoded address for current location.
     option.geoLanguage = GeoLanguage.EN;
 
     option.locationMode = AMapLocationMode.Hight_Accuracy;
@@ -112,13 +94,13 @@ class AMapLocationService {
     option.onceLocation = false;
     option.needAddress = true;
 
-
+    // Keep live location updates in English as well.
     option.geoLanguage = GeoLanguage.EN;
 
     option.locationMode = AMapLocationMode.Hight_Accuracy;
     option.androidLocationScene = AMapAndroidLocationScene.SignIn;
-    option.locationInterval = 3000;
-    option.distanceFilter = -1;
+    option.locationInterval = 2000;
+    option.distanceFilter = 1;
     option.desiredAccuracy = DesiredAccuracy.Best;
     option.pausesLocationUpdatesAutomatically = false;
 
@@ -133,23 +115,12 @@ class AMapLocationService {
       if (lat == null || lng == null) return null;
 
       final accuracy = (raw['accuracy'] as num?)?.toDouble() ?? 0.0;
-
       final address = (raw['address'] as String?) ?? '';
-      final province = (raw['province'] as String?) ?? '';
-      final city = (raw['city'] as String?) ?? '';
-      final district = (raw['district'] as String?) ?? '';
-      final street = (raw['street'] as String?) ?? '';
-      final adCode = (raw['adCode'] as String?) ?? '';
 
       return AMapLocationData(
         latitude: lat,
         longitude: lng,
         address: address,
-        province: province,
-        city: city,
-        district: district,
-        street: street,
-        adCode: adCode,
         accuracy: accuracy,
       );
     } catch (e) {
@@ -194,12 +165,13 @@ class AMapLocationService {
     final granted = await requestPermission();
     if (!granted) return;
 
-    await _sub?.cancel();
+    await stopContinuousLocation();
+
     _setContinuousLocationOption();
 
-    _sub = _plugin.onLocationChanged().listen((raw) {
+    _nativeLocationSub = _plugin.onLocationChanged().listen((raw) {
       final parsed = _parse(raw);
-      if (parsed != null) {
+      if (parsed != null && !_controller.isClosed) {
         _controller.add(parsed);
       }
     });
@@ -209,8 +181,8 @@ class AMapLocationService {
 
   Future<void> stopContinuousLocation() async {
     _plugin.stopLocation();
-    await _sub?.cancel();
-    _sub = null;
+    await _nativeLocationSub?.cancel();
+    _nativeLocationSub = null;
   }
 
   Future<void> dispose() async {

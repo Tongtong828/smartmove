@@ -1,12 +1,14 @@
 import 'dart:io';
 
+import 'package:amap_map/amap_map.dart';
 import 'package:flutter/material.dart';
+import 'package:x_amap_base/x_amap_base.dart';
 
 import '../model/record.dart';
 import '../model/tag.dart';
 import '../store/store.dart';
 
-class DetailPage extends StatelessWidget {
+class DetailPage extends StatefulWidget {
   final CheckInRecord record;
 
   const DetailPage({
@@ -15,10 +17,50 @@ class DetailPage extends StatelessWidget {
   });
 
   @override
+  State<DetailPage> createState() => _DetailPageState();
+}
+
+class _DetailPageState extends State<DetailPage> {
+  static const String _androidAmapKey = 'e26dbf722aba3a0197ae32bc699cc18f';
+  static const String _iosAmapKey = '';
+
+  bool _amapInited = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _initAmap(context);
+  }
+
+  void _initAmap(BuildContext context) {
+    if (_amapInited) return;
+
+    AMapInitializer.updatePrivacyAgree(
+      const AMapPrivacyStatement(
+        hasContains: true,
+        hasShow: true,
+        hasAgree: true,
+      ),
+    );
+
+    AMapInitializer.init(
+      context,
+      apiKey: const AMapApiKey(
+        androidKey: _androidAmapKey,
+        iosKey: _iosAmapKey,
+      ),
+    );
+
+    _amapInited = true;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final record = widget.record;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Check-in Detail'),
+        title: const Text('Place Details'),
         actions: [
           IconButton(
             onPressed: () async {
@@ -102,24 +144,94 @@ class DetailPage extends StatelessWidget {
             }).toList(),
           ),
           const SizedBox(height: 18),
+
+          // Map preview with a fixed center pin overlay.
           _sectionCard(
-            title: 'Detailed Address',
+            title: 'Map Preview',
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: SizedBox(
+                height: 220,
+                width: double.infinity,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    AMapWidget(
+                      initialCameraPosition: CameraPosition(
+                        target: LatLng(record.latitude, record.longitude),
+                        zoom: 15,
+                      ),
+                      mapType: MapType.normal,
+                      mapLanguage: MapLanguage.english,
+                      onMapCreated: (_) {},
+                    ),
+
+                    // Center pin overlay to make the point always visible.
+                    IgnorePointer(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.94),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              record.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Icon(
+                            Icons.location_on_rounded,
+                            size: 36,
+                            color: Colors.redAccent,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          _sectionCard(
+            title: 'Place / Address',
             child: Text(
               record.address.isEmpty ? 'No address' : record.address,
-              style: const TextStyle(fontSize: 15, height: 1.5),
+              style: const TextStyle(
+                fontSize: 15,
+                height: 1.5,
+              ),
             ),
           ),
           const SizedBox(height: 14),
+
           _sectionCard(
-            title: 'Note',
+            title: 'Notes',
             child: Text(
-              record.note.isEmpty ? 'No note for this check-in.' : record.note,
-              style: const TextStyle(fontSize: 15, height: 1.5),
+              record.note.isEmpty ? 'No notes for this place.' : record.note,
+              style: const TextStyle(
+                fontSize: 15,
+                height: 1.5,
+              ),
             ),
           ),
           const SizedBox(height: 14),
+
           _sectionCard(
-            title: 'Location Information',
+            title: 'Location Details',
             child: Column(
               children: [
                 _row('Location Source', record.locationSourceLabel),
@@ -140,6 +252,9 @@ class DetailPage extends StatelessWidget {
     required Widget child,
   }) {
     return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(22),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -165,7 +280,9 @@ class DetailPage extends StatelessWidget {
       children: [
         Text(
           title,
-          style: const TextStyle(fontWeight: FontWeight.w700),
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+          ),
         ),
         const Spacer(),
         Flexible(
