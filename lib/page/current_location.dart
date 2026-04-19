@@ -31,10 +31,16 @@ class AMapLocationData {
 
   String get displayAddress {
     if (address.trim().isNotEmpty) return address;
-    final parts = [province, city, district, street]
+
+    final parts = [street, district, city, province]
         .where((e) => e.trim().isNotEmpty)
         .toList();
-    return parts.join(' ');
+
+    if (parts.isNotEmpty) {
+      return parts.join(', ');
+    }
+
+    return 'Address unavailable';
   }
 }
 
@@ -46,11 +52,8 @@ class AMapLocationService {
         _iosKey = iosKey {
     _plugin = AMapFlutterLocation();
 
-    /// 高德定位必须先处理隐私合规
     AMapFlutterLocation.updatePrivacyShow(true, true);
     AMapFlutterLocation.updatePrivacyAgree(true);
-
-    /// 设置 key
     AMapFlutterLocation.setApiKey(_androidKey, _iosKey);
   }
 
@@ -90,7 +93,9 @@ class AMapLocationService {
 
     option.onceLocation = true;
     option.needAddress = true;
-    option.geoLanguage = GeoLanguage.DEFAULT;
+
+    option.geoLanguage = GeoLanguage.EN;
+
     option.locationMode = AMapLocationMode.Hight_Accuracy;
     option.androidLocationScene = AMapAndroidLocationScene.SignIn;
     option.locationInterval = 2000;
@@ -106,7 +111,10 @@ class AMapLocationService {
 
     option.onceLocation = false;
     option.needAddress = true;
-    option.geoLanguage = GeoLanguage.DEFAULT;
+
+
+    option.geoLanguage = GeoLanguage.EN;
+
     option.locationMode = AMapLocationMode.Hight_Accuracy;
     option.androidLocationScene = AMapAndroidLocationScene.SignIn;
     option.locationInterval = 3000;
@@ -125,6 +133,7 @@ class AMapLocationService {
       if (lat == null || lng == null) return null;
 
       final accuracy = (raw['accuracy'] as num?)?.toDouble() ?? 0.0;
+
       final address = (raw['address'] as String?) ?? '';
       final province = (raw['province'] as String?) ?? '';
       final city = (raw['city'] as String?) ?? '';

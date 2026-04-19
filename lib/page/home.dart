@@ -92,7 +92,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _locationStarted = true;
 
     setState(() {
-      _statusText = 'Starting AMap location...';
+      _statusText = 'Starting location...';
       _errorText = null;
     });
 
@@ -101,10 +101,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (!mounted) return;
 
     if (first != null) {
-      debugPrint(
-        '[AMAP CURRENT] lat=${first.latitude}, lng=${first.longitude}, address=${first.displayAddress}, acc=${first.accuracy}',
-      );
-
       setState(() {
         _currentLocation = first;
         _statusText = 'Current location acquired';
@@ -116,17 +112,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     } else {
       setState(() {
         _statusText = 'Failed to get current location';
-        _errorText = 'AMap location returned no valid result.';
+        _errorText = 'Location returned no valid result.';
       });
     }
 
     await _locationSub?.cancel();
     _locationSub = _locationService?.stream.listen((loc) {
       if (!mounted) return;
-
-      debugPrint(
-        '[AMAP STREAM] lat=${loc.latitude}, lng=${loc.longitude}, address=${loc.displayAddress}, acc=${loc.accuracy}',
-      );
 
       setState(() {
         _currentLocation = loc;
@@ -156,14 +148,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (loc == null) {
       setState(() {
         _statusText = 'Refresh failed';
-        _errorText = 'AMap location refresh failed.';
+        _errorText = 'Location refresh failed.';
       });
       return;
     }
-
-    debugPrint(
-      '[AMAP REFRESH] lat=${loc.latitude}, lng=${loc.longitude}, address=${loc.displayAddress}, acc=${loc.accuracy}',
-    );
 
     setState(() {
       _currentLocation = loc;
@@ -245,15 +233,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final latText = _currentLocation == null
-        ? '--'
-        : _currentLocation!.latitude.toStringAsFixed(6);
-    final lngText = _currentLocation == null
-        ? '--'
-        : _currentLocation!.longitude.toStringAsFixed(6);
-    final addressText =
-        _currentLocation == null ? '--' : _currentLocation!.displayAddress;
-
     return AnimatedBuilder(
       animation: CheckInStore.instance,
       builder: (context, _) {
@@ -318,25 +297,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      'Status: $_statusText\nCurrent: $latText, $lngText\n$addressText',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   if (_errorText != null)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),

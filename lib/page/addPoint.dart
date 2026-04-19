@@ -27,12 +27,12 @@ class AddPointPage extends StatefulWidget {
 }
 
 class _AddPointPageState extends State<AddPointPage> {
-  static const String _amapWebKey = '25e1c7867cf33ba2b1bcc57919b2f093';
+  static const String amapWebKey = '25e1c7867cf33ba2b1bcc57919b2f093';
 
-  final _titleController = TextEditingController();
-  final _noteController = TextEditingController();
-  final _addressController = TextEditingController();
-  final _picker = ImagePicker();
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _noteController = TextEditingController();
+  final TextEditingController _addressController = TextEditingController();
+  final ImagePicker _picker = ImagePicker();
 
   late final AMapRegeoService _regeoService;
 
@@ -48,7 +48,10 @@ class _AddPointPageState extends State<AddPointPage> {
   @override
   void initState() {
     super.initState();
-    _regeoService = AMapRegeoService(webKey: _amapWebKey);
+
+    _regeoService = AMapRegeoService(
+      webKey: amapWebKey,
+    );
 
     _latitude = widget.initialLatitude;
     _longitude = widget.initialLongitude;
@@ -86,29 +89,20 @@ class _AddPointPageState extends State<AddPointPage> {
     if (widget.initialAddress != null &&
         widget.initialAddress!.trim().isNotEmpty) {
       _addressController.text = widget.initialAddress!;
-      _showMessage('Using current location.');
-      return;
+    } else {
+      _addressController.text = 'Please edit the detailed address';
     }
-
-    await _resolveAddressFromCoordinates(
-      latitude: widget.initialLatitude!,
-      longitude: widget.initialLongitude!,
-      forceOverwrite: true,
-    );
 
     _showMessage('Using current location.');
   }
 
-  Future<void> _resolveAddressFromCoordinates({
+  Future<void> _resolvePickedLocationAddress({
     required double latitude,
     required double longitude,
-    bool forceOverwrite = false,
   }) async {
     setState(() {
       _isResolvingAddress = true;
-      if (forceOverwrite) {
-        _addressController.text = 'Resolving address...';
-      }
+      _addressController.text = 'Finding address...';
     });
 
     try {
@@ -122,13 +116,11 @@ class _AddPointPageState extends State<AddPointPage> {
       if (address != null && address.trim().isNotEmpty) {
         _addressController.text = address;
       } else {
-        _addressController.text =
-            'Address not found automatically. Please enter it manually.';
+        _addressController.text = 'The address could not be obtained automatically. Please fill it in manually';
       }
     } catch (_) {
       if (!mounted) return;
-      _addressController.text =
-          'Address resolution failed. Please enter it manually.';
+      _addressController.text = 'Address resolution failed. Please fill it in manually';
     } finally {
       if (mounted) {
         setState(() {
@@ -158,15 +150,12 @@ class _AddPointPageState extends State<AddPointPage> {
       _latitude = latitude;
       _longitude = longitude;
       _locationSource = 'manual';
-
-      // 关键：手动选点后先清掉旧地址，避免当前位置地址残留
       _addressController.clear();
     });
 
-    await _resolveAddressFromCoordinates(
+    await _resolvePickedLocationAddress(
       latitude: latitude,
       longitude: longitude,
-      forceOverwrite: true,
     );
 
     _showMessage('Map location selected.');
@@ -240,7 +229,7 @@ class _AddPointPageState extends State<AddPointPage> {
       return;
     }
 
-    if (address.isEmpty || address == 'Resolving address...') {
+    if (address.isEmpty || address == 'Loading...') {
       _showMessage('Please wait for the address or enter it manually.');
       return;
     }
@@ -319,7 +308,7 @@ class _AddPointPageState extends State<AddPointPage> {
                           Text(
                             'Default: current location. Pick on Map is optional if you want to correct or add a missed check-in.',
                             style: TextStyle(
-                              color: Colors.grey.shade700,
+                              color: Colors.grey,
                             ),
                           ),
                           const SizedBox(height: 12),

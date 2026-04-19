@@ -48,12 +48,14 @@ class AMapRegeoService {
     final component = regeo['addressComponent'];
     if (component is Map<String, dynamic>) {
       final province = component['province']?.toString() ?? '';
+
       final cityValue = component['city'];
       final city = cityValue is List ? '' : (cityValue?.toString() ?? '');
+
       final district = component['district']?.toString() ?? '';
       final township = component['township']?.toString() ?? '';
-      final streetNumber = component['streetNumber'];
 
+      final streetNumber = component['streetNumber'];
       String street = '';
       String number = '';
 
