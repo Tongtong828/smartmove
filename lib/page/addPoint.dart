@@ -1,22 +1,25 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../model/record.dart';
+import '../model/tag.dart';
 import '../store/store.dart';
-import '../widget/form.dart';
+import 'address_detail.dart';
+import 'point_pick.dart';
 
 class AddPointPage extends StatefulWidget {
   final double? initialLatitude;
   final double? initialLongitude;
+  final String? initialAddress;
 
   const AddPointPage({
     super.key,
     this.initialLatitude,
     this.initialLongitude,
+    this.initialAddress,
   });
 
   @override
@@ -24,25 +27,39 @@ class AddPointPage extends StatefulWidget {
 }
 
 class _AddPointPageState extends State<AddPointPage> {
+  static const String _amapWebKey = '25e1c7867cf33ba2b1bcc57919b2f093';
+
   final _titleController = TextEditingController();
   final _noteController = TextEditingController();
+  final _addressController = TextEditingController();
   final _picker = ImagePicker();
+
+  late final AMapRegeoService _regeoService;
 
   double? _latitude;
   double? _longitude;
   String? _imagePath;
   List<String> _selectedTags = [];
+
+  String? _locationSource;
   bool _isSaving = false;
-  bool _isLoadingLocation = false;
+  bool _isResolvingAddress = false;
 
   @override
   void initState() {
     super.initState();
+    _regeoService = AMapRegeoService(webKey: _amapWebKey);
+
     _latitude = widget.initialLatitude;
     _longitude = widget.initialLongitude;
 
-    if (_latitude == null || _longitude == null) {
-      _loadCurrentLocation();
+    if (widget.initialAddress != null &&
+        widget.initialAddress!.trim().isNotEmpty) {
+      _addressController.text = widget.initialAddress!;
+    }
+
+    if (_latitude != null && _longitude != null) {
+      _locationSource = 'current';
     }
   }
 
@@ -50,43 +67,109 @@ class _AddPointPageState extends State<AddPointPage> {
   void dispose() {
     _titleController.dispose();
     _noteController.dispose();
+    _addressController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadCurrentLocation() async {
+  Future<void> _useInitialCurrentLocation() async {
+    if (widget.initialLatitude == null || widget.initialLongitude == null) {
+      _showMessage('Current location is not ready yet.');
+      return;
+    }
+
     setState(() {
-      _isLoadingLocation = true;
+      _latitude = widget.initialLatitude;
+      _longitude = widget.initialLongitude;
+      _locationSource = 'current';
+    });
+
+    if (widget.initialAddress != null &&
+        widget.initialAddress!.trim().isNotEmpty) {
+      _addressController.text = widget.initialAddress!;
+      _showMessage('Using current location.');
+      return;
+    }
+
+    await _resolveAddressFromCoordinates(
+      latitude: widget.initialLatitude!,
+      longitude: widget.initialLongitude!,
+      forceOverwrite: true,
+    );
+
+    _showMessage('Using current location.');
+  }
+
+  Future<void> _resolveAddressFromCoordinates({
+    required double latitude,
+    required double longitude,
+    bool forceOverwrite = false,
+  }) async {
+    setState(() {
+      _isResolvingAddress = true;
+      if (forceOverwrite) {
+        _addressController.text = 'Resolving address...';
+      }
     });
 
     try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) return;
-
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        return;
-      }
-
-      final position = await Geolocator.getCurrentPosition();
+      final address = await _regeoService.reverseGeocode(
+        latitude: latitude,
+        longitude: longitude,
+      );
 
       if (!mounted) return;
 
-      setState(() {
-        _latitude = position.latitude;
-        _longitude = position.longitude;
-      });
+      if (address != null && address.trim().isNotEmpty) {
+        _addressController.text = address;
+      } else {
+        _addressController.text =
+            'Address not found automatically. Please enter it manually.';
+      }
+    } catch (_) {
+      if (!mounted) return;
+      _addressController.text =
+          'Address resolution failed. Please enter it manually.';
     } finally {
       if (mounted) {
         setState(() {
-          _isLoadingLocation = false;
+          _isResolvingAddress = false;
         });
       }
     }
+  }
+
+  Future<void> _pickOnMap() async {
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PickLocationPage(
+          initialLatitude: _latitude ?? widget.initialLatitude,
+          initialLongitude: _longitude ?? widget.initialLongitude,
+        ),
+      ),
+    );
+
+    if (result == null) return;
+
+    final latitude = (result['latitude'] as num).toDouble();
+    final longitude = (result['longitude'] as num).toDouble();
+
+    setState(() {
+      _latitude = latitude;
+      _longitude = longitude;
+      _locationSource = 'manual';
+
+      // 关键：手动选点后先清掉旧地址，避免当前位置地址残留
+      _addressController.clear();
+    });
+
+    await _resolveAddressFromCoordinates(
+      latitude: latitude,
+      longitude: longitude,
+      forceOverwrite: true,
+    );
+
+    _showMessage('Map location selected.');
   }
 
   Future<String> _persistImage(XFile file) async {
@@ -123,17 +206,42 @@ class _AddPointPageState extends State<AddPointPage> {
     });
   }
 
+  void _toggleTag(String key) {
+    final next = List<String>.from(_selectedTags);
+
+    if (next.contains(key)) {
+      next.remove(key);
+    } else {
+      next.add(key);
+    }
+
+    setState(() {
+      _selectedTags = next;
+    });
+  }
+
   Future<void> _save() async {
     final title = _titleController.text.trim();
     final note = _noteController.text.trim();
+    final address = _addressController.text.trim();
 
     if (title.isEmpty) {
       _showMessage('Please enter a title.');
       return;
     }
 
-    if (_latitude == null || _longitude == null) {
-      _showMessage('Current location is not ready.');
+    if (_latitude == null || _longitude == null || _locationSource == null) {
+      _showMessage('Please choose a location first.');
+      return;
+    }
+
+    if (_selectedTags.isEmpty) {
+      _showMessage('Please select at least one tag.');
+      return;
+    }
+
+    if (address.isEmpty || address == 'Resolving address...') {
+      _showMessage('Please wait for the address or enter it manually.');
       return;
     }
 
@@ -147,6 +255,8 @@ class _AddPointPageState extends State<AddPointPage> {
       note: note,
       latitude: _latitude!,
       longitude: _longitude!,
+      address: address,
+      locationSource: _locationSource!,
       createdAt: DateTime.now(),
       imagePath: _imagePath,
       tags: _selectedTags,
@@ -165,39 +275,295 @@ class _AddPointPageState extends State<AddPointPage> {
     );
   }
 
+  String _locationStatusText() {
+    if (_locationSource == null) {
+      return 'No location selected';
+    }
+    if (_locationSource == 'manual') {
+      return 'Picked on map';
+    }
+    return 'Using current location';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final hasLocation = _latitude != null && _longitude != null;
+    final latText = _latitude == null ? '--' : _latitude!.toStringAsFixed(6);
+    final lngText = _longitude == null ? '--' : _longitude!.toStringAsFixed(6);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Add Check-in'),
-        actions: [
-          IconButton(
-            onPressed: _isLoadingLocation ? null : _loadCurrentLocation,
-            icon: const Icon(Icons.my_location_rounded),
-          ),
-        ],
       ),
       body: SafeArea(
         child: Column(
           children: [
             Expanded(
-              child: SingleChildScrollView(
+              child: ListView(
                 padding: const EdgeInsets.all(16),
-                child: AddPointForm(
-                  titleController: _titleController,
-                  noteController: _noteController,
-                  latitude: _latitude,
-                  longitude: _longitude,
-                  imagePath: _imagePath,
-                  selectedTags: _selectedTags,
-                  onTakePhoto: () => _pickImage(ImageSource.camera),
-                  onPickFromGallery: () => _pickImage(ImageSource.gallery),
-                  onTagsChanged: (value) {
-                    setState(() {
-                      _selectedTags = value;
-                    });
-                  },
-                ),
+                children: [
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Location',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Default: current location. Pick on Map is optional if you want to correct or add a missed check-in.',
+                            style: TextStyle(
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: FilledButton.icon(
+                                  onPressed: _useInitialCurrentLocation,
+                                  icon: const Icon(Icons.my_location_rounded),
+                                  label: const Text('Use Current Location'),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: _pickOnMap,
+                                  icon: const Icon(Icons.place_rounded),
+                                  label: const Text('Pick on Map'),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF5F7FB),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _locationStatusText(),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  hasLocation
+                                      ? 'Location selected successfully.'
+                                      : 'Current location is not ready yet.',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade700,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Lat: $latText\nLng: $lngText',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade700,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          TextField(
+                            controller: _addressController,
+                            maxLines: 3,
+                            decoration: InputDecoration(
+                              labelText: 'Detailed Address',
+                              hintText:
+                                  'Address will auto-fill. You can still edit it.',
+                              suffixIcon: _isResolvingAddress
+                                  ? const Padding(
+                                      padding: EdgeInsets.all(12),
+                                      child: SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      ),
+                                    )
+                                  : null,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          TextField(
+                            controller: _titleController,
+                            decoration: InputDecoration(
+                              labelText: 'Title',
+                              hintText: 'e.g. British Museum',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: _noteController,
+                            maxLines: 4,
+                            decoration: InputDecoration(
+                              labelText: 'Note',
+                              hintText: 'Write something about this place...',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Tags',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Select at least one tag.',
+                            style: TextStyle(color: Colors.grey.shade700),
+                          ),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: availableTags.map((tag) {
+                              final isSelected = _selectedTags.contains(tag.key);
+
+                              return FilterChip(
+                                selected: isSelected,
+                                label: Text(tag.label),
+                                avatar: Icon(
+                                  tag.icon,
+                                  size: 18,
+                                  color: isSelected ? Colors.white : tag.color,
+                                ),
+                                selectedColor: tag.color,
+                                checkmarkColor: Colors.white,
+                                labelStyle: TextStyle(
+                                  color: isSelected
+                                      ? Colors.white
+                                      : Colors.black87,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                onSelected: (_) {
+                                  _toggleTag(tag.key);
+                                },
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Photo',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          if (_imagePath != null)
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: Image.file(
+                                File(_imagePath!),
+                                height: 220,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                              ),
+                            )
+                          else
+                            Container(
+                              height: 180,
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF2F4F8),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: const Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.photo_camera_back_rounded,
+                                    size: 44,
+                                  ),
+                                  SizedBox(height: 8),
+                                  Text('No photo selected'),
+                                ],
+                              ),
+                            ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: () =>
+                                      _pickImage(ImageSource.camera),
+                                  icon: const Icon(Icons.photo_camera_rounded),
+                                  label: const Text('Camera'),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: () =>
+                                      _pickImage(ImageSource.gallery),
+                                  icon: const Icon(Icons.photo_library_rounded),
+                                  label: const Text('Gallery'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             Padding(

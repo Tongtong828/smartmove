@@ -2,11 +2,11 @@ import 'dart:async';
 
 import 'package:amap_map/amap_map.dart';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:x_amap_base/x_amap_base.dart';
 
 import '../store/store.dart';
 import 'addPoint.dart';
+import 'current_location.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -16,10 +16,14 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
-  AMapController? _mapController;
-  StreamSubscription<Position>? _positionSubscription;
+  static const String _androidAmapKey = 'e26dbf722aba3a0197ae32bc699cc18f';
+  static const String _iosAmapKey = '';
 
-  Position? _currentPosition;
+  AMapController? _mapController;
+  AMapLocationService? _locationService;
+  StreamSubscription<AMapLocationData>? _locationSub;
+
+  AMapLocationData? _currentLocation;
   String _statusText = 'Initializing...';
   String? _errorText;
 
@@ -31,6 +35,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _locationService = AMapLocationService(
+      androidKey: _androidAmapKey,
+      iosKey: _iosAmapKey,
+    );
   }
 
   @override
@@ -46,7 +54,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _positionSubscription?.cancel();
+    _locationSub?.cancel();
+    _locationService?.dispose();
     super.dispose();
   }
 
@@ -71,8 +80,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     AMapInitializer.init(
       context,
       apiKey: const AMapApiKey(
-        androidKey: '21c52760a4cb63f4b3682cf50e74e41d',
-        iosKey: '',
+        androidKey: _androidAmapKey,
+        iosKey: _iosAmapKey,
       ),
     );
 
@@ -83,117 +92,98 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _locationStarted = true;
 
     setState(() {
-      _statusText = 'Checking location...';
+      _statusText = 'Starting AMap location...';
       _errorText = null;
     });
 
-    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      setState(() {
-        _statusText = 'Location service disabled';
-        _errorText = 'Please turn on GPS / Location.';
-      });
-      return;
-    }
+    final first = await _locationService?.getCurrentLocation();
 
-    var permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
+    if (!mounted) return;
 
-    if (permission == LocationPermission.denied) {
-      setState(() {
-        _statusText = 'Permission denied';
-        _errorText = 'Location permission denied.';
-      });
-      return;
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      setState(() {
-        _statusText = 'Permission denied forever';
-        _errorText = 'Please enable location permission in settings.';
-      });
-      return;
-    }
-
-    setState(() {
-      _statusText = 'Listening...';
-      _errorText = null;
-    });
-
-    await _positionSubscription?.cancel();
-
-    _positionSubscription = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 5,
-      ),
-    ).listen(
-      (pos) {
-        if (!mounted) return;
-
-        setState(() {
-          _currentPosition = pos;
-          _statusText = 'Location updated';
-          _errorText = null;
-        });
-
-        if (!_hasMovedCamera) {
-          _moveCameraToCurrent();
-          _hasMovedCamera = true;
-        }
-      },
-      onError: (e) {
-        if (!mounted) return;
-
-        setState(() {
-          _statusText = 'Location error';
-          _errorText = '$e';
-        });
-      },
-    );
-
-    await _refreshCurrentLocation();
-  }
-
-  Future<void> _refreshCurrentLocation() async {
-    try {
-      final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-        ),
+    if (first != null) {
+      debugPrint(
+        '[AMAP CURRENT] lat=${first.latitude}, lng=${first.longitude}, address=${first.displayAddress}, acc=${first.accuracy}',
       );
 
-      if (!mounted) return;
-
       setState(() {
-        _currentPosition = pos;
+        _currentLocation = first;
         _statusText = 'Current location acquired';
         _errorText = null;
       });
 
       await _moveCameraToCurrent();
       _hasMovedCamera = true;
-    } catch (e) {
-      if (!mounted) return;
-
+    } else {
       setState(() {
-        _statusText = 'Failed to get location';
-        _errorText = '$e';
+        _statusText = 'Failed to get current location';
+        _errorText = 'AMap location returned no valid result.';
       });
     }
+
+    await _locationSub?.cancel();
+    _locationSub = _locationService?.stream.listen((loc) {
+      if (!mounted) return;
+
+      debugPrint(
+        '[AMAP STREAM] lat=${loc.latitude}, lng=${loc.longitude}, address=${loc.displayAddress}, acc=${loc.accuracy}',
+      );
+
+      setState(() {
+        _currentLocation = loc;
+        _statusText = 'Location updated';
+        _errorText = null;
+      });
+
+      if (!_hasMovedCamera) {
+        _moveCameraToCurrent();
+        _hasMovedCamera = true;
+      }
+    });
+
+    await _locationService?.startContinuousLocation();
+  }
+
+  Future<void> _refreshCurrentLocation() async {
+    setState(() {
+      _statusText = 'Refreshing current location...';
+      _errorText = null;
+    });
+
+    final loc = await _locationService?.getCurrentLocation();
+
+    if (!mounted) return;
+
+    if (loc == null) {
+      setState(() {
+        _statusText = 'Refresh failed';
+        _errorText = 'AMap location refresh failed.';
+      });
+      return;
+    }
+
+    debugPrint(
+      '[AMAP REFRESH] lat=${loc.latitude}, lng=${loc.longitude}, address=${loc.displayAddress}, acc=${loc.accuracy}',
+    );
+
+    setState(() {
+      _currentLocation = loc;
+      _statusText = 'Current location refreshed';
+      _errorText = null;
+    });
+
+    await _moveCameraToCurrent();
+    _hasMovedCamera = true;
   }
 
   Future<void> _moveCameraToCurrent() async {
-    if (_mapController == null || _currentPosition == null) return;
+    if (_mapController == null || _currentLocation == null) return;
 
     await _mapController!.moveCamera(
       CameraUpdate.newCameraPosition(
         CameraPosition(
           target: LatLng(
-            _currentPosition!.latitude,
-            _currentPosition!.longitude,
+            _currentLocation!.latitude,
+            _currentLocation!.longitude,
           ),
           zoom: 16,
         ),
@@ -204,17 +194,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Set<Marker> _buildMarkers() {
     final markers = <Marker>{};
 
-    if (_currentPosition != null) {
+    if (_currentLocation != null) {
       markers.add(
         Marker(
           position: LatLng(
-            _currentPosition!.latitude,
-            _currentPosition!.longitude,
+            _currentLocation!.latitude,
+            _currentLocation!.longitude,
           ),
           infoWindowEnable: true,
-          infoWindow: const InfoWindow(
-            title: 'Current Position',
-            snippet: 'You are here',
+          infoWindow: InfoWindow(
+            title: 'Current Location',
+            snippet: _currentLocation!.displayAddress,
           ),
         ),
       );
@@ -227,7 +217,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           infoWindowEnable: true,
           infoWindow: InfoWindow(
             title: record.title,
-            snippet: record.dateTimeLabel,
+            snippet: record.address,
           ),
         ),
       );
@@ -241,8 +231,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       context,
       MaterialPageRoute(
         builder: (_) => AddPointPage(
-          initialLatitude: _currentPosition?.latitude,
-          initialLongitude: _currentPosition?.longitude,
+          initialLatitude: _currentLocation?.latitude,
+          initialLongitude: _currentLocation?.longitude,
+          initialAddress: _currentLocation?.displayAddress,
         ),
       ),
     );
@@ -254,8 +245,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final lat = _currentPosition?.latitude;
-    final lng = _currentPosition?.longitude;
+    final latText = _currentLocation == null
+        ? '--'
+        : _currentLocation!.latitude.toStringAsFixed(6);
+    final lngText = _currentLocation == null
+        ? '--'
+        : _currentLocation!.longitude.toStringAsFixed(6);
+    final addressText =
+        _currentLocation == null ? '--' : _currentLocation!.displayAddress;
 
     return AnimatedBuilder(
       animation: CheckInStore.instance,
@@ -265,118 +262,110 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             title: const Text('City Check-in Map'),
             centerTitle: true,
           ),
-          body: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                Expanded(
-                  child: Stack(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(24),
-                        child: AMapWidget(
-                          initialCameraPosition: const CameraPosition(
-                            target: LatLng(39.909187, 116.397451),
-                            zoom: 12,
+          body: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(24),
+                          child: AMapWidget(
+                            initialCameraPosition: const CameraPosition(
+                              target: LatLng(39.909187, 116.397451),
+                              zoom: 12,
+                            ),
+                            mapType: MapType.normal,
+                            mapLanguage: MapLanguage.english,
+                            markers: _buildMarkers(),
+                            onMapCreated: (controller) async {
+                              _mapController = controller;
+                              await _moveCameraToCurrent();
+                            },
                           ),
-                          mapType: MapType.normal,
-                          mapLanguage: MapLanguage.english,
-                          markers: _buildMarkers(),
-                          onMapCreated: (controller) async {
-                            _mapController = controller;
-                            await _moveCameraToCurrent();
-                          },
                         ),
-                      ),
-                      Positioned(
-                        top: 16,
-                        left: 16,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.94),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Text(
-                            '${CheckInStore.instance.records.length} saved check-ins',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
+                        Positioned(
+                          top: 16,
+                          left: 16,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.94),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Text(
+                              '${CheckInStore.instance.records.length} saved check-ins',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      Positioned(
-                        right: 16,
-                        bottom: 86,
-                        child: FloatingActionButton.small(
-                          heroTag: 'recenter_btn',
-                          onPressed: _refreshCurrentLocation,
-                          child: const Icon(Icons.my_location_rounded),
-                        ),
-                      ),
-                      Positioned(
-                        right: 16,
-                        bottom: 16,
-                        child: FloatingActionButton.extended(
-                          heroTag: 'add_btn',
-                          onPressed: _goToAddPoint,
-                          icon: const Icon(Icons.add_location_alt_rounded),
-                          label: const Text('Add Check-in'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        _row('Status', _statusText),
-                        const SizedBox(height: 8),
-                        _row(
-                          'Latitude',
-                          lat == null ? '--' : lat.toStringAsFixed(6),
-                        ),
-                        const SizedBox(height: 8),
-                        _row(
-                          'Longitude',
-                          lng == null ? '--' : lng.toStringAsFixed(6),
-                        ),
-                        if (_errorText != null) ...[
-                          const SizedBox(height: 12),
-                          Text(
-                            _errorText!,
-                            style: const TextStyle(color: Colors.red),
-                            textAlign: TextAlign.center,
+                        Positioned(
+                          right: 16,
+                          bottom: 16,
+                          child: FloatingActionButton.small(
+                            heroTag: 'recenter_btn',
+                            onPressed: _refreshCurrentLocation,
+                            child: const Icon(Icons.my_location_rounded),
                           ),
-                        ],
+                        ),
                       ],
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      'Status: $_statusText\nCurrent: $latText, $lngText\n$addressText',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  if (_errorText != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        _errorText!,
+                        style: const TextStyle(color: Colors.red),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: _goToAddPoint,
+                      icon: const Icon(Icons.add_location_alt_rounded),
+                      label: const Text('Add Check-in'),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );
       },
-    );
-  }
-
-  Widget _row(String title, String value) {
-    return Row(
-      children: [
-        Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-        const Spacer(),
-        Text(value),
-      ],
     );
   }
 }

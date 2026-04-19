@@ -4,6 +4,8 @@ class CheckInRecord {
   final String note;
   final double latitude;
   final double longitude;
+  final String address;
+  final String locationSource; // 'current' or 'manual'
   final DateTime createdAt;
   final String? imagePath;
   final List<String> tags;
@@ -14,6 +16,8 @@ class CheckInRecord {
     required this.note,
     required this.latitude,
     required this.longitude,
+    required this.address,
+    required this.locationSource,
     required this.createdAt,
     required this.tags,
     this.imagePath,
@@ -23,12 +27,14 @@ class CheckInRecord {
     return CheckInRecord(
       id: json['id'] as String,
       title: json['title'] as String,
-      note: json['note'] as String,
+      note: json['note'] as String? ?? '',
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
+      address: json['address'] as String? ?? '',
+      locationSource: json['locationSource'] as String? ?? 'current',
       createdAt: DateTime.parse(json['createdAt'] as String),
       imagePath: json['imagePath'] as String?,
-      tags: (json['tags'] as List<dynamic>).cast<String>(),
+      tags: (json['tags'] as List<dynamic>? ?? const []).cast<String>(),
     );
   }
 
@@ -39,6 +45,8 @@ class CheckInRecord {
       'note': note,
       'latitude': latitude,
       'longitude': longitude,
+      'address': address,
+      'locationSource': locationSource,
       'createdAt': createdAt.toIso8601String(),
       'imagePath': imagePath,
       'tags': tags,
@@ -59,4 +67,14 @@ class CheckInRecord {
   }
 
   String get dateTimeLabel => '$dateLabel  $timeLabel';
+
+  String get locationSourceLabel {
+    switch (locationSource) {
+      case 'manual':
+        return 'Picked on map';
+      case 'current':
+      default:
+        return 'Current location';
+    }
+  }
 }
