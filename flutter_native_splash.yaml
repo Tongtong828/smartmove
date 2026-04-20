@@ -1,0 +1,12 @@
+flutter_native_splash:
+  color: "#EDEDED"
+  image: assets/brand/splash_logo.png
+
+  android: true
+  ios: true
+  web: false
+
+  android_12:
+    color: "#EDEDED"
+    image: assets/brand/splash_logo.png
+    icon_background_color: "#EDEDED"
