@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../model/tag.dart';
+import '../store/auth.dart';
 import '../store/store.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -40,7 +41,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
     setState(() {
       _name = prefs.getString(_nameKey) ?? 'City Explorer';
-      _bio = prefs.getString(_bioKey) ?? 'Collect places, moments and memories.';
+      _bio =
+          prefs.getString(_bioKey) ?? 'Collect places, moments and memories.';
       _avatarPath = prefs.getString(_avatarPathKey);
       _isLoadingProfile = false;
     });
@@ -66,9 +68,8 @@ class _ProfilePageState extends State<ProfilePage> {
     setState(() {
       _name = name;
       _bio = bio;
-      _avatarPath = (avatarPath == null || avatarPath.isEmpty)
-          ? null
-          : avatarPath;
+      _avatarPath =
+          (avatarPath == null || avatarPath.isEmpty) ? null : avatarPath;
     });
   }
 
@@ -80,9 +81,7 @@ class _ProfilePageState extends State<ProfilePage> {
       await folder.create(recursive: true);
     }
 
-    final ext = file.path.contains('.')
-        ? file.path.split('.').last
-        : 'jpg';
+    final ext = file.path.contains('.') ? file.path.split('.').last : 'jpg';
 
     final target = File(
       '${folder.path}/avatar_${DateTime.now().millisecondsSinceEpoch}.$ext',
@@ -285,6 +284,36 @@ class _ProfilePageState extends State<ProfilePage> {
     bioController.dispose();
   }
 
+  Future<void> _confirmLogout() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Log Out'),
+          content: const Text('Do you want to log out of this account?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context, false);
+              },
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(context, true);
+              },
+              child: const Text('Log Out'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result == true) {
+      await AuthStore.instance.logout();
+    }
+  }
+
   Widget _sheetActionTile({
     required IconData icon,
     required String title,
@@ -337,8 +366,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildAvatar(BuildContext context) {
-    final hasAvatar =
-        _avatarPath != null &&
+    final hasAvatar = _avatarPath != null &&
         _avatarPath!.trim().isNotEmpty &&
         File(_avatarPath!).existsSync();
 
@@ -515,6 +543,11 @@ class _ProfilePageState extends State<ProfilePage> {
                 onPressed: _showEditProfileDialog,
                 icon: const Icon(Icons.edit_rounded),
               ),
+              IconButton(
+                onPressed: _confirmLogout,
+                icon: const Icon(Icons.logout_rounded),
+                tooltip: 'Log Out',
+              ),
             ],
           ),
           body: ListView(
@@ -566,7 +599,8 @@ class _ProfilePageState extends State<ProfilePage> {
                                   Text(
                                     _bio,
                                     style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.92),
+                                      color:
+                                          Colors.white.withValues(alpha: 0.92),
                                       height: 1.45,
                                       fontSize: 14.5,
                                     ),
@@ -660,7 +694,9 @@ class _ProfilePageState extends State<ProfilePage> {
                       'Saved address',
                       latest == null
                           ? '--'
-                          : (latest.address.isEmpty ? 'No address' : latest.address),
+                          : (latest.address.isEmpty
+                                ? 'No address'
+                                : latest.address),
                     ),
                     const SizedBox(height: 12),
                     _summaryRow(
