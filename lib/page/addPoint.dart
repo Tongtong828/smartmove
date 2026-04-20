@@ -3,12 +3,13 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:pinyin/pinyin.dart';
 
 import '../model/record.dart';
 import '../model/tag.dart';
 import '../store/store.dart';
-import 'address_detail.dart';
 import 'point_pick.dart';
+import 'address_detail.dart';
 
 class AddPointPage extends StatefulWidget {
   final double? initialLatitude;
@@ -58,7 +59,7 @@ class _AddPointPageState extends State<AddPointPage> {
 
     if (widget.initialAddress != null &&
         widget.initialAddress!.trim().isNotEmpty) {
-      _addressController.text = widget.initialAddress!;
+      _addressController.text = _toPinyinDirectly(widget.initialAddress!);
     }
 
     if (_latitude != null && _longitude != null) {
@@ -72,6 +73,22 @@ class _AddPointPageState extends State<AddPointPage> {
     _noteController.dispose();
     _addressController.dispose();
     super.dispose();
+  }
+
+  bool _containsChinese(String text) {
+    return RegExp(r'[\u4e00-\u9fff]').hasMatch(text);
+  }
+
+  String _toPinyinDirectly(String raw) {
+    if (!_containsChinese(raw)) {
+      return raw;
+    }
+
+    return PinyinHelper.getPinyinE(
+      raw,
+      separator: ' ',
+      format: PinyinFormat.WITHOUT_TONE,
+    );
   }
 
   Future<void> _useInitialCurrentLocation() async {
@@ -88,7 +105,7 @@ class _AddPointPageState extends State<AddPointPage> {
 
     if (widget.initialAddress != null &&
         widget.initialAddress!.trim().isNotEmpty) {
-      _addressController.text = widget.initialAddress!;
+      _addressController.text = _toPinyinDirectly(widget.initialAddress!);
     } else {
       _addressController.text = 'Please enter the address for this place.';
     }
@@ -114,7 +131,7 @@ class _AddPointPageState extends State<AddPointPage> {
       if (!mounted) return;
 
       if (address != null && address.trim().isNotEmpty) {
-        _addressController.text = address;
+        _addressController.text = _toPinyinDirectly(address);
       } else {
         _addressController.text =
             'Address could not be loaded automatically. Please enter it manually.';
@@ -316,8 +333,6 @@ class _AddPointPageState extends State<AddPointPage> {
                             ),
                           ),
                           const SizedBox(height: 16),
-
-                          // Two balanced rounded action buttons
                           Row(
                             children: [
                               Expanded(
@@ -370,7 +385,6 @@ class _AddPointPageState extends State<AddPointPage> {
                               ),
                             ],
                           ),
-
                           const SizedBox(height: 16),
                           Container(
                             width: double.infinity,
@@ -400,7 +414,6 @@ class _AddPointPageState extends State<AddPointPage> {
                               ],
                             ),
                           ),
-
                           const SizedBox(height: 16),
                           TextField(
                             controller: _addressController,

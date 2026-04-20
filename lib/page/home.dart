@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:amap_map/amap_map.dart';
 import 'package:flutter/material.dart';
@@ -28,17 +30,87 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   bool _amapInited = false;
   bool _locationStarted = false;
-  bool _hasMovedCamera = false;
   bool _isLocating = false;
+
+  BitmapDescriptor? _currentLocationMarkerIcon;
+  BitmapDescriptor? _savedPlaceMarkerIcon;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
     _locationService = AMapLocationService(
       androidKey: _androidAmapKey,
       iosKey: _iosAmapKey,
     );
+
+    _initMarkerIcons();
+  }
+
+  Future<void> _initMarkerIcons() async {
+    final currentIcon = await _buildMaterialIconMarker(
+      Icons.location_on_rounded,
+      color: const Color(0xFF2F80ED),
+      size: 110,
+    );
+
+    final savedIcon = await _buildMaterialIconMarker(
+      Icons.location_on_rounded,
+      color: Colors.redAccent,
+      size: 110,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _currentLocationMarkerIcon = currentIcon;
+      _savedPlaceMarkerIcon = savedIcon;
+    });
+  }
+
+  Future<BitmapDescriptor> _buildMaterialIconMarker(
+    IconData iconData, {
+    required Color color,
+    double size = 96,
+  }) async {
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+
+    final double canvasSize = size * 1.35;
+
+    final painter = TextPainter(
+      textDirection: TextDirection.ltr,
+      text: TextSpan(
+        text: String.fromCharCode(iconData.codePoint),
+        style: TextStyle(
+          fontSize: size,
+          color: color,
+          fontFamily: iconData.fontFamily,
+          package: iconData.fontPackage,
+        ),
+      ),
+    );
+
+    painter.layout();
+
+    final dx = (canvasSize - painter.width) / 2;
+    final dy = (canvasSize - painter.height) / 2;
+
+    painter.paint(canvas, Offset(dx, dy));
+
+    final image = await recorder
+        .endRecording()
+        .toImage(canvasSize.ceil(), canvasSize.ceil());
+
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+
+    if (byteData == null) {
+      return BitmapDescriptor.defaultMarker;
+    }
+
+    final bytes = Uint8List.view(byteData.buffer);
+    return BitmapDescriptor.fromBytes(bytes);
   }
 
   @override
@@ -105,7 +177,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       });
 
       await _moveCameraToCurrent(forceZoom: true);
-      _hasMovedCamera = true;
     } else {
       setState(() {
         _errorText = 'Location is currently unavailable.';
@@ -165,7 +236,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _goToMyLocation() async {
     if (_isLocating) return;
 
-    // If live location already exists, just move the camera immediately.
     if (_currentLocation != null) {
       await _moveCameraToCurrent(forceZoom: true);
 
@@ -178,7 +248,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       return;
     }
 
-    // Fallback: try to get location once only when no cached location exists.
     setState(() {
       _isLocating = true;
       _errorText = null;
@@ -230,6 +299,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             _currentLocation!.latitude,
             _currentLocation!.longitude,
           ),
+          icon: _currentLocationMarkerIcon ?? BitmapDescriptor.defaultMarker,
+          zIndex: 20,
           infoWindowEnable: true,
           infoWindow: InfoWindow(
             title: 'Current Location',
@@ -243,6 +314,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       markers.add(
         Marker(
           position: LatLng(record.latitude, record.longitude),
+          icon: _savedPlaceMarkerIcon ?? BitmapDescriptor.defaultMarker,
+          zIndex: 10,
           infoWindowEnable: true,
           infoWindow: InfoWindow(
             title: record.title,
@@ -326,8 +399,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             ),
                           ),
                         ),
-
-                        // Recenter button: move back to the latest known location.
                         Positioned(
                           right: 16,
                           bottom: 16,
