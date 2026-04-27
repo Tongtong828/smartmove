@@ -553,12 +553,21 @@
         <div class="phone-card card">
           <div class="phone-shell">
             <div class="phone-screen" style="min-height:auto; background:#ffffff;">
-              <img src="home-map.png" alt="SmartMove home map screenshot" style="width:100%; height:auto; display:block; object-fit:cover;" />
+              <video
+                controls
+                muted
+                playsinline
+                preload="metadata"
+                poster="home-map.png"
+                style="width:100%; height:auto; display:block; object-fit:cover;"
+              >
+                <source src="smartmove_video.mp4" type="video/mp4" />
+                Your browser does not support the video tag.
+              </video>
             </div>
           </div>
           <p class="small-note">
-            
-          </p>
+            </p>
         </div>
       </div>
     </section>
@@ -607,7 +616,7 @@
             <div class="bullet">
               <div class="bullet-mark">✓</div>
               <div>
-                <strong>Uses phone onboard sensor</strong>
+                <strong>Uses phone's on-board sensor</strong>
                 <p>Current location and map-based selection connect the app directly to the user’s physical surroundings.</p>
               </div>
             </div>
@@ -797,9 +806,6 @@
             and data recording over time to support a meaningful real-world task. Rather than acting as a generic map,
             the app focuses on personal context, place memory and repeated engagement.
           </p>
-          <p class="small-note">
-            This section is useful when explaining the project in your presentation, README and submission materials.
-          </p>
         </div>
       </div>
     </section>
@@ -810,9 +816,8 @@
           <div>
             <h3>SmartMove is ready to present</h3>
             <p>
-              Click Button to see GitHub Repository and video
+              Click button to see the Github Repository and video
             </p>
-            
           </div>
           <div style="display:flex; gap:12px; flex-wrap:wrap; justify-content:flex-start;">
             <a class="btn btn-primary" href="https://github.com/Tongtong828/smartmove">View GitHub Repository</a>
