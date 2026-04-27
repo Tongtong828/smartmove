@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SmartMove | City Memory Map</title>
+  <meta
+    name="description"
+    content="SmartMove is a Flutter mobile app for saving meaningful places with location, notes, photos and tags."
+  />
+  <style>
+    :root {
+      --bg: #f6f8fc;
+      --card: rgba(255, 255, 255, 0.88);
+      --text: #172033;
+      --muted: #5f6b85;
+      --line: rgba(23, 32, 51, 0.08);
+      --primary: #5c6cff;
+      --primary-2: #8f7cff;
+      --accent: #4cc9a6;
+      --shadow: 0 18px 45px rgba(35, 47, 88, 0.12);
+      --radius-xl: 28px;
+      --radius-lg: 22px;
+      --radius-md: 18px;
+      --max: 1140px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(92,108,255,0.18), transparent 30%),
+        radial-gradient(circle at top right, rgba(143,124,255,0.16), transparent 28%),
+        var(--bg);
+      color: var(--text);
+    }
+
+    a { color: inherit; text-decoration: none; }
+    img { max-width: 100%; display: block; }
+
+    .container {
+      width: min(var(--max), calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    .nav-wrap {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      backdrop-filter: blur(14px);
+      background: rgba(246, 248, 252, 0.72);
+      border-bottom: 1px solid rgba(23, 32, 51, 0.06);
+    }
+
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 0;
+      gap: 16px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+    }
+
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-2));
+      display: grid;
+      place-items: center;
+      box-shadow: var(--shadow);
+      color: white;
+      font-size: 18px;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 18px;
+      align-items: center;
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border: 0;
+      border-radius: 999px;
+      padding: 14px 20px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .2s ease, box-shadow .2s ease, opacity .2s ease;
+    }
+
+    .btn:hover { transform: translateY(-1px); }
+
+    .btn-primary {
+      color: white;
+      background: linear-gradient(135deg, var(--primary), var(--primary-2));
+      box-shadow: 0 14px 28px rgba(92, 108, 255, 0.28);
+    }
+
+    .btn-secondary {
+      color: var(--text);
+      background: rgba(255,255,255,0.9);
+      border: 1px solid var(--line);
+    }
+
+    .hero {
+      padding: 62px 0 42px;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.08fr 0.92fr;
+      gap: 28px;
+      align-items: center;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.82);
+      border: 1px solid rgba(23,32,51,0.06);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2.4rem, 5vw, 4.5rem);
+      line-height: 0.98;
+      letter-spacing: -0.04em;
+    }
+
+    .hero p {
+      margin: 18px 0 0;
+      color: var(--muted);
+      font-size: 1.05rem;
+      line-height: 1.7;
+      max-width: 62ch;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 26px;
+    }
+
+    .hero-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 28px;
+    }
+
+    .mini-stat,
+    .card,
+    .feature,
+    .screen,
+    .step,
+    .footer-card {
+      background: var(--card);
+      border: 1px solid rgba(255,255,255,0.55);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .mini-stat { padding: 18px; }
+
+    .mini-stat strong {
+      display: block;
+      font-size: 1.45rem;
+      margin-bottom: 4px;
+    }
+
+    .mini-stat span {
+      color: var(--muted);
+      font-size: 0.94rem;
+      font-weight: 600;
+    }
+
+    .phone-card {
+      padding: 22px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .phone-shell {
+      width: min(100%, 360px);
+      margin: 0 auto;
+      background: #121625;
+      border-radius: 36px;
+      padding: 12px;
+      box-shadow: 0 30px 60px rgba(18, 22, 37, 0.28);
+    }
+
+    .phone-screen {
+      background: linear-gradient(180deg, #eef2ff 0%, #ffffff 100%);
+      border-radius: 28px;
+      overflow: hidden;
+      min-height: 620px;
+      position: relative;
+    }
+
+    .mock-map {
+      height: 340px;
+      background:
+        radial-gradient(circle at 30% 30%, rgba(92,108,255,0.22), transparent 12%),
+        radial-gradient(circle at 70% 35%, rgba(143,124,255,0.22), transparent 12%),
+        linear-gradient(140deg, #d9e3ff, #edf2ff);
+      position: relative;
+    }
+
+    .mock-road,
+    .mock-road-2,
+    .mock-road-3 {
+      position: absolute;
+      background: rgba(255,255,255,0.92);
+      border-radius: 999px;
+    }
+
+    .mock-road { width: 120%; height: 16px; left: -10%; top: 42%; transform: rotate(18deg); }
+    .mock-road-2 { width: 95%; height: 14px; left: 10%; top: 60%; transform: rotate(-16deg); }
+    .mock-road-3 { width: 15px; height: 105%; left: 48%; top: -8%; transform: rotate(10deg); }
+
+    .pin {
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      border-radius: 999px 999px 999px 0;
+      transform: rotate(-45deg);
+      box-shadow: 0 10px 18px rgba(0,0,0,0.14);
+    }
+
+    .pin::after {
+      content: "";
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: white;
+      inset: 7px;
+    }
+
+    .pin.blue { background: #4c7dff; left: 58%; top: 34%; }
+    .pin.red { background: #ff5e78; left: 34%; top: 49%; }
+    .pin.green { background: #34c794; left: 69%; top: 57%; }
+
+    .mock-sheet {
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      bottom: 16px;
+      background: rgba(255,255,255,0.95);
+      border-radius: 22px;
+      padding: 16px;
+      box-shadow: 0 18px 30px rgba(37, 47, 86, 0.14);
+    }
+
+    .sheet-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .chip-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .chip {
+      padding: 8px 10px;
+      background: #f3f6ff;
+      border-radius: 999px;
+      color: #4c5f8c;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .primary-bar {
+      height: 44px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-2));
+    }
+
+    section { padding: 28px 0; }
+
+    .section-heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 20px;
+      margin-bottom: 18px;
+    }
+
+    .section-heading h2 {
+      margin: 0;
+      font-size: clamp(1.7rem, 3vw, 2.5rem);
+      letter-spacing: -0.03em;
+    }
+
+    .section-heading p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+      max-width: 62ch;
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .feature { padding: 22px; }
+
+    .feature .icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      color: white;
+      background: linear-gradient(135deg, var(--primary), var(--primary-2));
+      margin-bottom: 14px;
+      font-weight: 800;
+    }
+
+    .feature h3,
+    .step h3,
+    .screen h3,
+    .footer-card h3 {
+      margin: 0 0 8px;
+      font-size: 1.05rem;
+    }
+
+    .feature p,
+    .step p,
+    .screen p,
+    .footer-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+
+    .card { padding: 22px; }
+
+    .bullets {
+      display: grid;
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .bullet {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .bullet-mark {
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      color: white;
+      background: linear-gradient(135deg, var(--primary), var(--primary-2));
+      flex: 0 0 26px;
+      font-size: 12px;
+      font-weight: 800;
+      margin-top: 2px;
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+    }
+
+    .step { padding: 20px; }
+
+    .step-number {
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      background: rgba(92,108,255,0.12);
+      color: var(--primary);
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      margin-bottom: 12px;
+    }
+
+    .screens-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .screen { padding: 14px; }
+
+    .screen-shot {
+      width: 100%;
+      aspect-ratio: 9 / 18.5;
+      border-radius: 18px;
+      object-fit: cover;
+      border: 1px solid rgba(92,108,255,0.18);
+      background: linear-gradient(180deg, #edf2ff 0%, #ffffff 100%);
+      margin-bottom: 12px;
+    }
+
+    .footer-cta {
+      padding: 16px 0 56px;
+    }
+
+    .footer-card {
+      padding: 28px;
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 18px;
+      align-items: center;
+    }
+
+    .small-note {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.6;
+    }
+
+    footer {
+      padding: 0 0 34px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    @media (max-width: 980px) {
+      .hero-grid,
+      .split,
+      .footer-card {
+        grid-template-columns: 1fr;
+      }
+
+      .features {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .steps,
+      .screens-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 720px) {
+      .nav-links { display: none; }
+      .hero { padding-top: 34px; }
+      .hero-stats,
+      .features,
+      .steps,
+      .screens-grid { grid-template-columns: 1fr; }
+      .section-heading {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="nav-wrap">
+    <div class="container">
+      <nav>
+        <a class="brand" href="#top">
+          <div class="brand-mark">SM</div>
+          <div>
+            <div>SmartMove</div>
+            <div style="font-size:12px;color:var(--muted);font-weight:700;">City Memory Map</div>
+          </div>
+        </a>
+        <div class="nav-links">
+          <a href="#problem">Problem</a>
+          <a href="#features">Features</a>
+          <a href="#journey">Journey</a>
+          <a href="#screens">Screens</a>
+          <a href="#tech">Tech</a>
+        </div>
+      </nav>
+    </div>
+  </div>
+
+  <main id="top">
+    <section class="hero">
+      <div class="container hero-grid">
+        <div>
+          <div class="eyebrow">Connected environments · location-based mobile experience</div>
+          <h1>Capture places.<br />Keep memories.<br />Move meaningfully.</h1>
+          <p>
+            SmartMove is a Flutter mobile app that turns everyday locations into personal memory points.
+            Users can save a place using live location or map selection, attach notes and photos, organise it with tags,
+            and revisit their journey later through a simple, location-aware interface.
+          </p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="#screens">View App Screens</a>
+            <a class="btn btn-secondary" href="#problem">See How It Solves the Problem</a>
+          </div>
+          <div class="hero-stats">
+            <div class="mini-stat">
+              <strong>Live map</strong>
+              <span>Location-based interaction</span>
+            </div>
+            <div class="mini-stat">
+              <strong>Memory log</strong>
+              <span>Notes, photos and tags</span>
+            </div>
+            <div class="mini-stat">
+              <strong>History view</strong>
+              <span>Places saved over time</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="phone-card card">
+          <div class="phone-shell">
+            <div class="phone-screen">
+              <div class="mock-map">
+                <div class="mock-road"></div>
+                <div class="mock-road-2"></div>
+                <div class="mock-road-3"></div>
+                <div class="pin blue"></div>
+                <div class="pin red"></div>
+                <div class="pin green"></div>
+                <div class="mock-sheet">
+                  <div class="sheet-row">
+                    <span>Saved places</span>
+                    <span>12</span>
+                  </div>
+                  <div class="chip-row">
+                    <span class="chip">Home</span>
+                    <span class="chip">School</span>
+                    <span class="chip">Photo Spot</span>
+                  </div>
+                  <div class="primary-bar"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="small-note">
+            SmartMove combines location sensing, place logging and personal memory tracking in a simple mobile experience.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section id="problem">
+      <div class="container split">
+        <div class="card">
+          <div class="section-heading" style="margin-bottom:0;">
+            <div>
+              <h2>The Problem</h2>
+              <p>Interesting places are easy to forget. Most map apps are good for navigation, but not for building a personal memory trail.</p>
+            </div>
+          </div>
+          <div class="bullets">
+            <div class="bullet">
+              <div class="bullet-mark">1</div>
+              <div>
+                <strong>Places disappear from memory quickly.</strong>
+                <p>People often visit meaningful locations, but later forget the context, feeling, or details attached to them.</p>
+              </div>
+            </div>
+            <div class="bullet">
+              <div class="bullet-mark">2</div>
+              <div>
+                <strong>Photos alone are not enough.</strong>
+                <p>Image galleries rarely capture why a place mattered, how it was found, or how it connected to daily routines.</p>
+              </div>
+            </div>
+            <div class="bullet">
+              <div class="bullet-mark">3</div>
+              <div>
+                <strong>Location should support reflection, not only navigation.</strong>
+                <p>SmartMove reframes mobile location sensing as a way to document personal experience in the connected environment.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 style="margin-top:0;">The Solution</h2>
+          <p style="color:var(--muted); line-height:1.7;">
+            SmartMove allows the user to save a place using the phone’s location capabilities or by selecting a point on the map.
+            Each entry can include a title, note, image, address, and tags, creating a lightweight but meaningful digital place archive.
+          </p>
+          <div class="bullets">
+            <div class="bullet">
+              <div class="bullet-mark">✓</div>
+              <div>
+                <strong>Uses mobile sensing</strong>
+                <p>Current location and map-based selection connect the app directly to the user’s physical surroundings.</p>
+              </div>
+            </div>
+            <div class="bullet">
+              <div class="bullet-mark">✓</div>
+              <div>
+                <strong>Supports repeat interaction</strong>
+                <p>Users return to the app over time to record, organise and revisit places that matter to them.</p>
+              </div>
+            </div>
+            <div class="bullet">
+              <div class="bullet-mark">✓</div>
+              <div>
+                <strong>Builds a narrative</strong>
+                <p>The app gradually turns isolated place records into a personal story of movement, memory and routine.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="features">
+      <div class="container">
+        <div class="section-heading">
+          <div>
+            <h2>Key Features</h2>
+            <p>Designed to meet the assessment brief while keeping the experience clear, personal and practical.</p>
+          </div>
+        </div>
+        <div class="features">
+          <div class="feature">
+            <div class="icon">1</div>
+            <h3>Live map home screen</h3>
+            <p>The user sees a large map, saved places, and a current-location action for quick re-centering and orientation.</p>
+          </div>
+          <div class="feature">
+            <div class="icon">2</div>
+            <h3>Add place from current location or map pick</h3>
+            <p>New locations can be captured from the device’s present position or selected manually on the map for flexibility.</p>
+          </div>
+          <div class="feature">
+            <div class="icon">3</div>
+            <h3>Notes, photos and tags</h3>
+            <p>Each saved location becomes a richer memory entry with text reflection, image attachment and personal categorisation.</p>
+          </div>
+          <div class="feature">
+            <div class="icon">4</div>
+            <h3>History and detail pages</h3>
+            <p>Saved places can be browsed later, encouraging repeat use and giving the app a clear after-visit value.</p>
+          </div>
+          <div class="feature">
+            <div class="icon">5</div>
+            <h3>Editable profile</h3>
+            <p>The profile area allows custom name, signature and avatar, making the app feel more personal and curated.</p>
+          </div>
+          <div class="feature">
+            <div class="icon">6</div>
+            <h3>Login and logout flow</h3>
+            <p>An auth gate ensures users enter through a login/register screen before reaching the main application views.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="journey">
+      <div class="container">
+        <div class="section-heading">
+          <div>
+            <h2>User Journey</h2>
+            <p>This flow can be referenced in your presentation when explaining the app narrative and interaction design.</p>
+          </div>
+        </div>
+        <div class="steps">
+          <div class="step">
+            <div class="step-number">01</div>
+            <h3>Enter the app</h3>
+            <p>The user opens SmartMove, sees the splash screen, and signs in through the login/register gateway.</p>
+          </div>
+          <div class="step">
+            <div class="step-number">02</div>
+            <h3>Capture a place</h3>
+            <p>A location is selected either from the current GPS-based position or directly from the interactive map.</p>
+          </div>
+          <div class="step">
+            <div class="step-number">03</div>
+            <h3>Enrich the entry</h3>
+            <p>The user adds a title, note, optional photo, and tags to give the location personal meaning.</p>
+          </div>
+          <div class="step">
+            <div class="step-number">04</div>
+            <h3>Revisit over time</h3>
+            <p>The memory remains available in the history and detail pages, supporting future reflection and repeated interaction.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="screens">
+      <div class="container">
+        <div class="section-heading">
+          <div>
+            <h2>App Screens</h2>
+            <p>
+              These six core screens show the full user journey: splash, authentication,
+              map overview, adding a place, saved history, and profile personalisation.
+            </p>
+          </div>
+        </div>
+
+        <div class="screens-grid">
+          <div class="screen">
+            <img class="screen-shot" src="splash-screen.png" alt="SmartMove splash screen" />
+            <h3>Splash Screen</h3>
+            <p>The app opens with a branded splash screen that introduces the project before the main flow begins.</p>
+          </div>
+
+          <div class="screen">
+            <img class="screen-shot" src="login-register.png" alt="SmartMove login and register page" />
+            <h3>Login / Register</h3>
+            <p>Users enter the app through an authentication gate, making the opening flow clearer and more complete.</p>
+          </div>
+
+          <div class="screen">
+            <img class="screen-shot" src="home-map.png" alt="SmartMove home map page" />
+            <h3>Home Map</h3>
+            <p>The home screen shows the main map, current location, saved place markers, and quick access to adding a new entry.</p>
+          </div>
+
+          <div class="screen">
+            <img class="screen-shot" src="add-place.png" alt="SmartMove add place page" />
+            <h3>Add a Place</h3>
+            <p>Users can create a memory entry with location, title, notes, tags and optional media, linking place with personal meaning.</p>
+          </div>
+
+          <div class="screen">
+            <img class="screen-shot" src="saved-places.png" alt="SmartMove history page showing saved places" />
+            <h3>Saved Places</h3>
+            <p>The history page organises past records over time, showing that the app supports repeat use and place-based memory logging.</p>
+          </div>
+
+          <div class="screen">
+            <img class="screen-shot" src="profile-page.png" alt="SmartMove profile page" />
+            <h3>Profile</h3>
+            <p>The profile page makes the app feel personal through editable identity details, memory summary cards and account actions.</p>
+          </div>
+        </div>
+
+        <p class="small-note">
+          These six screens summarise the complete user flow from entry to ongoing use, making the project easy to explain in both GitHub Pages and the final presentation.
+        </p>
+      </div>
+    </section>
+
+    <section id="tech">
+      <div class="container split">
+        <div class="card">
+          <h2 style="margin-top:0;">Technical Integration</h2>
+          <div class="bullets">
+            <div class="bullet">
+              <div class="bullet-mark">A</div>
+              <div>
+                <strong>Flutter app architecture</strong>
+                <p>Built as a multi-view Flutter application with dedicated pages for home, add-place, history, detail and profile flows.</p>
+              </div>
+            </div>
+            <div class="bullet">
+              <div class="bullet-mark">B</div>
+              <div>
+                <strong>Location-aware interaction</strong>
+                <p>Uses phone location capabilities and map interaction to connect the app to the user’s physical environment.</p>
+              </div>
+            </div>
+            <div class="bullet">
+              <div class="bullet-mark">C</div>
+              <div>
+                <strong>External map and geocoding services</strong>
+                <p>Map rendering and reverse geocoding extend the app beyond a purely local UI and add real spatial context.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h2 style="margin-top:0;">Why It Fits the Brief</h2>
+          <p style="color:var(--muted); line-height:1.7;">
+            SmartMove aligns with the Connected Environments theme by using mobile sensing, map services, user interaction,
+            and data recording over time to support a meaningful real-world task. Rather than acting as a generic map,
+            the app focuses on personal context, place memory and repeated engagement.
+          </p>
+          <p class="small-note">
+            This section is useful when explaining the project in your presentation, README and submission materials.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="footer-cta">
+      <div class="container">
+        <div class="footer-card">
+          <div>
+            <h3>SmartMove is ready to present</h3>
+            <p>
+              This landing page works as a compact showcase for the final assessment. It explains the problem,
+              demonstrates the main screens, and summarises the technical and user-experience decisions behind the app.
+            </p>
+            <p class="small-note">
+              Before submission, replace the two placeholder links below with your real GitHub repository and demo video or GIF.
+            </p>
+          </div>
+          <div style="display:flex; gap:12px; flex-wrap:wrap; justify-content:flex-start;">
+            <a class="btn btn-primary" href="https://github.com/Tongtong828/smartmove">View GitHub Repository</a>
+            <a class="btn btn-secondary" href="#">Watch Demo Video</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div>SmartMove · City Memory Map · Flutter mobile systems assessment project · Designed and developed by Tong</div>
+    </div>
+  </footer>
+</body>
+</html>
