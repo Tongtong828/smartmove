@@ -1,4 +1,4 @@
-# SmartMove 📍  
+# SmartMove 📍
 ### A City Memory Map built with Flutter
 
 <p align="center">
@@ -10,24 +10,26 @@
 </p>
 
 <p align="center">
-  SmartMove is a location-based mobile application that helps users record meaningful places in everyday life.
+  SmartMove is a Flutter mobile application that helps users record meaningful places in everyday life.
   By combining live location, map selection, notes, photos, and tags, the app turns ordinary places into a personal memory archive.
 </p>
 
 <p align="center">
   <a href="https://tongtong828.github.io/smartmove/"><strong>Landing Page</strong></a> ·
-  <a href="https://github.com/Tongtong828/smartmove"><strong>GitHub Repository</strong></a>
+  <a href="https://github.com/Tongtong828/smartmove"><strong>GitHub Repository</strong></a> ·
+  <a href="https://tongtong828.github.io/smartmove/"><strong>GitHub landing page</strong></a> ·
+  <a href="docs/smartmove_video.mp4"><strong>Demo Video</strong></a>
 </p>
 
 ---
 
 ## Project Overview
 
-SmartMove is a Flutter mobile app developed for the **CASA0015 Mobile Systems & Interactions Final Assessment**.
+SmartMove is a location-based mobile app developed for the **CASA0015 Mobile Systems & Interactions Final Assessment**.
 
-Instead of using maps only for navigation, SmartMove uses mobile sensing and map interaction to help users save meaningful places. Each saved entry can include a title, note, image, address, and tags, allowing the user to build a lightweight but personal record of places over time.
+Rather than using maps only for navigation, SmartMove uses mobile sensing and map interaction to help users save meaningful places. Each saved entry can include a title, address, note, image, and tags, allowing the user to build a lightweight but personal record of places over time.
 
-The project is designed around the theme of **Connected Environments**, connecting:
+This project is designed around the theme of **Connected Environments**, connecting:
 
 - the **physical environment** through mobile location sensing
 - the **digital environment** through map services and saved records
@@ -55,7 +57,7 @@ SmartMove addresses this problem by allowing users to:
   A clear branded entry point for the app.
 
 - **Login / Register**  
-  Users enter through an authentication gate before using the application.
+  Users enter through an authentication gate before accessing the application.
 
 - **Home Map**  
   A large map-based homepage showing current location and saved place markers.
@@ -76,33 +78,72 @@ SmartMove addresses this problem by allowing users to:
 
 ## App Screens
 
-### Splash Screen
-![Splash Screen](docs/splash-screen.png)
+<p align="center">
+  <strong>Main app screens</strong>
+</p>
 
-### Login / Register
-![Login Register](docs/login-register.png)
-
-### Home Map
-![Home Map](docs/home-map.png)
-
-### Add a Place
-![Add Place](docs/add-place.png)
-
-### Saved Places
-![Saved Places](docs/saved-places.png)
-
-### Profile
-![Profile](docs/profile-page.png)
+<table>
+  <tr>
+    <td align="center">
+      <a href="docs/splash-screen.png">
+        <img src="docs/splash-screen.png" alt="Splash Screen" width="180" />
+      </a>
+      <br />
+      <sub><b>Splash Screen</b></sub>
+    </td>
+    <td align="center">
+      <a href="docs/login-register.png">
+        <img src="docs/login-register.png" alt="Login Register Page" width="180" />
+      </a>
+      <br />
+      <sub><b>Login / Register Page</b></sub>
+    </td>
+    <td align="center">
+      <a href="docs/home-map.png">
+        <img src="docs/home-map.png" alt="Home Map Page" width="180" />
+      </a>
+      <br />
+      <sub><b>Home Map Page</b></sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <a href="docs/add-place.png">
+        <img src="docs/add-place.png" alt="Add Place Page" width="180" />
+      </a>
+      <br />
+      <sub><b>Add Place Page</b></sub>
+    </td>
+    <td align="center">
+      <a href="docs/saved-places.png">
+        <img src="docs/saved-places.png" alt="Saved Places Page" width="180" />
+      </a>
+      <br />
+      <sub><b>Saved Places / History Page</b></sub>
+    </td>
+    <td align="center">
+      <a href="docs/profile-page.png">
+        <img src="docs/profile-page.png" alt="Profile Page" width="180" />
+      </a>
+      <br />
+      <sub><b>Profile Page</b></sub>
+    </td>
+  </tr>
+</table>
 
 ---
 
 ## Demo Video
 
-<video src="docs/smartmove_video.mp4" controls width="320" poster="docs/home-map.png"></video>
+<p align="center">
+  <a href="docs/smartmove_video.mp4">
+    <img src="docs/home-map.png" alt="Watch SmartMove Demo Video" width="240" />
+  </a>
+</p>
 
-If the video preview does not appear in your Markdown viewer, use this direct link instead:
-
-[Watch the SmartMove Demo Video](docs/smartmove_video.mp4)
+<p align="center">
+  <a href="docs/smartmove_video.mp4"><strong>▶ Watch the SmartMove Demo Video</strong></a>
+</p>
 
 ---
 
@@ -110,7 +151,7 @@ If the video preview does not appear in your Markdown viewer, use this direct li
 
 The project landing page is available here:
 
-[Open the SmartMove Landing Page](https://tongtong828.github.io/smartmove/)
+**[Open the SmartMove Landing Page](https://tongtong828.github.io/smartmove/)**
 
 ---
 
@@ -183,31 +224,3 @@ This creates a complete interaction loop where the user not only captures a plac
 
 ---
 
-## Project Structure
-
-```text
-lib/
-├── main.dart
-├── model/
-├── page/
-│   ├── home.dart
-│   ├── addPoint.dart
-│   ├── history.dart
-│   ├── detail.dart
-│   ├── profile.dart
-│   ├── login.dart
-│   └── nav.dart
-├── store/
-│   ├── store.dart
-│   └── auth.dart
-└── widget/
-
-docs/
-├── logo.png
-├── splash-screen.png
-├── login-register.png
-├── home-map.png
-├── add-place.png
-├── saved-places.png
-├── profile-page.png
-└── smartmove_video.mp4
