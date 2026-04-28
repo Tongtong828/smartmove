@@ -17,7 +17,6 @@
 <p align="center">
   <a href="https://tongtong828.github.io/smartmove/"><strong>Landing Page</strong></a> ·
   <a href="https://github.com/Tongtong828/smartmove"><strong>GitHub Repository</strong></a> ·
-  <a href="https://tongtong828.github.io/smartmove/"><strong>GitHub landing page</strong></a> ·
   <a href="docs/smartmove_video.mp4"><strong>Demo Video</strong></a>
 </p>
 
